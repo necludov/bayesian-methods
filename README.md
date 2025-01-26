@@ -1,2 +1,2 @@
-# bayesian-methods
+# Bayesian Methods
 Materials for the course "Bayesian Methods in Statistics"
