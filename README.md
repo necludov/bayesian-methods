@@ -1,2 +1,2 @@
 # Bayesian Methods
-Materials for the course "Bayesian Methods in Statistics"
+This repository contains the notes that I've been writing _for myself_ to prepare for teaching the course "Methods of Bayesian Statistics" at UdeM. This is not the truth chiselled in stone; this hasn't been proofread and is very subjective, especially when it deviates to other subjects. Additionally, the repository contains practical exercises that are necessary for a complete understanding of the material.
