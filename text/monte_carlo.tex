@@ -1,0 +1,704 @@
+\section{Monte Carlo methods}
+
+Monte Carlo methods are usually used to numerically estimate the integrals of the form
+\begin{align}
+    \int dx\; p(x)f(x) = \mean_{p(x)} f(x)\,.
+\end{align}
+The key insight here is that instead of approximating the expression on the left using a regular grid or quadratures, one can draw samples distributed as $p(x)$ and approximate
+\begin{align}
+    \mean_{p(x)} f(x) \simeq \frac{1}{N}\sum_{i=1}^N f(x_i)\,, x_i \sim p(x)\,.
+\end{align}
+To understand the behaviour of this estimate one can use the Central Limit Theorem.
+\begin{theorem}[Central Limit Theorem]
+    Consider a random variable $X$ with the density $p(x)$, mean $\mu$, and variance $\sigma^2$. The following convergence result takes place
+    \begin{align}
+        \sqrt{n}(\hat{\mu}_n-\mu) \xrightarrow[]{d} \Normal(0,\sigma^2)\,, \;\; \hat{\mu}_n = \frac{1}{n}\sum_{i=1}^n x_i\,, x_i \sim p(x)\,,
+    \end{align}
+    where $\xrightarrow[]{d}$ denotes the convergence in distribution.
+\end{theorem}
+Using this estimator one can, for instance, estimate the predictive distribution of a Bayesian model as follows
+\begin{align}
+    \int d\theta\; p(x\cond \theta)p(\theta\cond \mathcal{D}) = \mean_{p(\theta\cond \mathcal{D})}p(x\cond \theta) \simeq \frac{1}{n}\sum_{i=1}^n p(x\cond \theta_i)\,,\; \theta_i \sim p(\theta_i\cond \mathcal{D})\,.
+\end{align}
+Hence, instead of approximating the posterior distribution as we did in Variational Inference (\cref{sec:var_inference}), one can reduce the problem to sampling from $p(\theta\cond \mathcal{D})$.
+
+\begin{mybox}
+\begin{center}
+    \textit{The central question of this section is "How to sample from a given density?"}
+\end{center}
+\end{mybox}
+
+Let's start with the simplest case of a 1D variable with a known Cumulative Density Function (CDF).
+That is, for the random variable $X$ its CDF is defined as
+\begin{align}
+    F_X(t) = \mathbb{P}(X \leq t)\,.
+\end{align}
+\begin{proposition}[Inverse CDF Sampling]
+    Define the random variable $Y$ as follows
+    \begin{align}
+        Y = F_X^{-1}(U)\,,\; U \sim [0,1]\,,
+    \end{align}
+    where the random variable $U$ is uniformly distributed in $[0,1]$.
+    $Y$ and $X$ have the same distribution.
+\end{proposition}
+\begin{proof}
+    To prove the equivalence of distributions let's evaluate the CDF of $Y$.
+    We have
+    \begin{align}
+        F_Y(t) = \mathbb{P}(Y \leq t) = \mathbb{P}(F_X^{-1}(U) \leq t) = \mathbb{P}(U \leq F_X(t)) = F_X(t)\,.
+    \end{align}
+\end{proof}
+
+\subsection{Importance Sampling}
+
+Before diving into the discussion of numerous ways to sample from a given density, let's see what we could possibly do if we cannot sample from the given density $p(x)$ but instead we can sample from some other density $q(x)$.
+Can we estimate the integral in that case?
+Well, let's write down the following identity
+\begin{align}
+    \mu \coloneqq \int dx\; p(x)f(x) = \int dx\; q(x)\frac{p(x)}{q(x)}f(x) = \mean_{q(x)}\underbrace{\frac{p(x)}{q(x)}}_{w(x)}f(x)\,,
+\end{align}
+where $w(x)$ is the density ratio that is called the importance weight.
+This identity suggests the following Monte Carlo estimator
+\begin{align}
+    \int dx\; p(x)f(x) = \mean_{q(x)}\underbrace{\frac{p(x)}{q(x)}}_{w(x)}f(x) \approx \frac{1}{n}\sum_{i=1}^n\frac{p(x_i)}{q(x_i)}f(x_i)\,, \;\; x_i \sim q(x)\,.
+    \label{eq:is_estimator}
+\end{align}
+Note that the estimator is itself a random variable, so one can wonder what is the mean of this random variable or the expected error.
+\begin{align}
+    \mean_{x_1,\ldots,x_n \sim q(x)}\frac{1}{n}\sum_{i=1}^n\frac{p(x_i)}{q(x_i)}f(x_i) = \frac{1}{n}\sum_{i=1}^n\mean_{x_i \sim q(x)}\frac{p(x_i)}{q(x_i)}f(x_i) = \frac{1}{n}\sum_{i=1}^n\mean_{x_i \sim q(x)}\frac{p(x_i)}{q(x_i)}f(x_i) = \mu\,.
+\end{align}
+That is, we have shown that the expected value of the Importance Sampling estimator matches the ground true value $\mu$ of the integral.
+\begin{proposition}[Unbiasedness of Importance Sampling]
+    The Importance Sampling estimator is unbiased, i.e.
+    \begin{align}
+        \mean_{x_1,\ldots,x_n \sim q(x)}\frac{1}{n}\sum_{i=1}^n\frac{p(x_i)}{q(x_i)}f(x_i) = \int dx\; p(x)f(x)\,.
+    \end{align}
+\end{proposition}
+The unbiasedness of an estimator is an important property, especially, for the optimization objectives. In particular, the unbiased estimator allows for the unbiased estimate of the gradients which ubiquitously used for the convergence results of the Stochastic Gradient Descent (SGD).
+
+Another crucial property of a Monte Carlo estimate is the consistency of the estimator.
+
+\begin{proposition}[Consistency of Importance Sampling]
+    The Importance Sampling estimator is consistent, i.e. for $x_i \sim q(x_i)$, we have
+    \begin{align}
+        \lim^p_{n\to \infty}\frac{1}{n}\sum_{i=1}^n\frac{p(x_i)}{q(x_i)}f(x_i) = \int dx\; p(x)f(x)\,,
+    \end{align}
+    where $\lim^p$ denotes convergence in probability.
+\end{proposition}
+
+The variance of the IS estimator is
+\begin{align}
+    \var\left[\frac{1}{n}\sum_{i=1}^n\frac{p(x_i)}{q(x_i)}f(x_i)\right] = \frac{1}{n^2}\sum_{i=1}^n\var\left[\frac{p(x)}{q(x)} f(x)\right] = \frac{1}{n}\mean_{q(x)}\left[\frac{p(x)}{q(x)} f(x) - \mu\right]^2 = \frac{1}{n}\mean_{q(x)}\left[\frac{p(x)}{q(x)} f(x)\right]^2 - \frac{\mu^2}{n}\,.
+\end{align}
+Let's consider the functional derivative of this variance w.r.t. $q(x)$
+\begin{align}
+    \frac{\delta }{\delta q}\var\left[\frac{p(x)}{q(x)} f(x)\right] = \frac{\delta }{\delta q} \int dx\; \frac{1}{q(x)}\left[p(x)f(x)\right]^2 = \frac{-1}{q(x)^2}\left[p(x)f(x)\right]^2\,.
+\end{align}
+Since $q(x)$ is a density, the variation of the variance is zero when the derivative is constant w.r.t. $x$ (up to a measure zero).
+Hence, the minimal variance is achieved
+\begin{align}
+    \argmin_{q}\var\left[\frac{p(x)}{q(x)} f(x)\right] \propto p(x)|f(x)|\,.
+\end{align}
+
+\begin{proposition}[Optimal Proposal for Importance Sampling]
+    The proposal density $q(x)$ that minimizes the variance of the Monte Carlo estimate in \cref{eq:is_estimator} is
+    \begin{align}
+        q(x) = \frac{p(x)|f(x)|}{\int dx\;p(x)|f(x)|}\,.
+    \end{align}
+\end{proposition}
+
+In practice, the main challenge is to sample from an \textit{unnormalized density}, i.e., for the target density $p(x) = \hat{p}(x)/Z_p$, we know only $\hat{p}(x)$ and don't know the normalization constant $Z_p$. The same applies for the proposal, i.e. we know only $q(x) = \hat{p}(x)/Z_q$. In this case, we can estimate the normalization constant if we consider $f(x)\equiv 1$. Indeed,
+\begin{align}
+    1 =~& \int dx\;p(x) = \mean_{q(x)}\frac{Z_q}{Z_p}\frac{\hat{p}(x)}{\hat{q}(x)}\\
+    \frac{Z_p}{Z_q} =~& \mean_{q(x)}\frac{\hat{p}(x)}{\hat{q}(x)} \approx \frac{1}{n}\sum_{i=1}^n \frac{\hat{p}(x_i)}{\hat{q}(x_i)}\,,\;\; x_i \sim q(x)\,,
+\end{align}
+Using this expression for the estimation of $Z_q/Z_p$, we get the following expression
+\begin{align}
+    \int dx\; p(x)f(x) \approx \frac{1}{n}\sum_{i=1}^n\frac{p(x_i)}{q(x_i)}f(x_i) = \frac{1}{n}\sum_{i=1}^n\frac{Z_q}{Z_p}\frac{\hat{p}(x_i)}{\hat{q}(x_i)}f(x_i) \approx \frac{1}{n}\sum_{i=1}^n\frac{\hat{p}(x_i)/\hat{q}(x_i)}{\sum_j \hat{p}(x_j)/\hat{q}(x_j)} f(x_i) \,, \;\; x_i \sim q(x)\,.
+\end{align}
+This motivates the following estimator.
+\begin{mybox}
+\begin{definition}[Self-Normalized Importance Sampling]
+    For the unnormalized target density $p(x)\propto \hat{p}(x)$ and unnormalized proposal distribution $q(x)\propto \hat{q}(x)$, Self-Normalized Importance Sampling (SNIS) is the following estimator
+    \begin{align}
+        \int dx\;p(x)f(x)\approx \sum_{i=1}^n w_i f(x_i)\,, w_i = \frac{\hat{p}(x_i)/\hat{q}(x_i)}{\sum_j \hat{p}(x_j)/\hat{q}(x_j)}\;\; x_i \sim q(x)\,.
+    \end{align}
+\end{definition}
+\end{mybox}
+\begin{exercise}
+    Prove that SNIS is a biased but consistent estimator.
+\end{exercise}
+
+\subsection{Discrete-Space Markov Chains}
+
+As we discussed before, the main question of Monte Carlo methods is the design of algorithms sampling from the given target distribution. One of the main tools in this design is Markov Chains. However, to learn how to use this tool, we have to start with studying Markov Chains. This section is aimed at developing the intuition for Markov Chains.
+
+\begin{mybox}
+\begin{definition}[Markov Process]
+Consider a sequence of random variables $X_0,\ldots,X_t,\ldots$. This sequence is called a Markov process if for any $t$ the joint density of the random variables up to $T$ factorizes as follows
+\begin{align}
+    p(x_0,\ldots, x_T) = p(x_0)\prod_{t=1}^T p(x_{t}|x_{t-1})
+\end{align}
+\end{definition}
+\end{mybox}
+\kir{interestingly, Kolmogorov was calling these processes stochastically determined and Follmer called them memory-less processes, it took some time for the development of common convention Markov Processes}
+
+For the discrete state-space, we assume that every $x_t$ takes values in some finite amount of states that we can number as $1,\ldots,N$.
+Then, the distribution of $x_0$ can simply described by an $N$-dimensional vector $q$, i.e.
+\begin{align}
+    p(x_0=i) = q_i\,, \;\; q_i \geq 0\,, \;\forall \;i\;\; \sum_{i=1}^N q_i = 1\,.
+\end{align}
+Furthermore, the conditional distribution $p(x_{t}|x_{t-1})$, which is usually called the transition probability can be described as the following matrix
+\begin{align}
+    p(x_t=i\cond x_{t-1}=j) = P_{ij}\,, \;\; P_{ij} \geq 0\,, \;\forall \;i,j\;\; \sum_{i=1}^N p(x_t=i\cond x_{t-1}=j) = \sum_{i=1}^N P_{ij} = 1\,.
+\end{align}
+In particular, if the Markov Process is time-homogeneous (the tranistion kernel does not change in time), i.e. $p(x_t=i\cond x_{t-1}=j) = p(x_s=i\cond x_{s-1}=j)\,, \;\forall \;t,s$, then we can use the same matrix $P$ for all the transition kernels.
+
+\begin{example}
+\label{ex:transition_matrix}
+    Let's consider a Markov Chain on three states depicted in \cref{fig:transition_matrix}, the transition matrix for this chain is the following
+    \begin{align}
+        P = 
+        \begin{bmatrix}
+        p(x_t=1\cond x_{t-1}=1) & p(x_t=1\cond x_{t-1}=2) & p(x_t=1\cond x_{t-1}=3)\\
+        p(x_t=2\cond x_{t-1}=1) & p(x_t=2\cond x_{t-1}=2) & p(x_t=2\cond x_{t-1}=3)\\
+        p(x_t=3\cond x_{t-1}=1) & p(x_t=3\cond x_{t-1}=2) & p(x_t=3\cond x_{t-1}=3)
+        \end{bmatrix}
+        =
+        \begin{bmatrix}
+        0 & 1/2 & 1/2\\
+        1 & 0 & 1/2\\
+        0 & 1/2 & 0
+        \end{bmatrix}\,.
+    \end{align}
+\end{example}
+
+\begin{figure}[t]
+    \centering
+    \begin{tikzpicture}[scale=2, thick, >=stealth]
+
+    % Nodes
+    \node[fill=black, circle, inner sep=1pt, label=above:1] (A) at (0,1.5) {};
+    \node[fill=black, circle, inner sep=1pt, label=right:2] (B) at (1.5,0) {};
+    \node[fill=black, circle, inner sep=1pt, label=left:3] (C) at (-1.5,0) {};
+
+    % Edges with arrows
+    \draw[->] (A) -- node[right=2pt] {\large$1$} (B);
+    \draw[->] (B) -- node[below] {\large$\frac{1}{2}$} (C);
+    \draw[->] (C) -- node[left=2pt] {\large$\frac{1}{2}$} (A);
+
+    \end{tikzpicture}
+    \begin{tikzpicture}[scale=2, thick, >=stealth]
+
+    % Nodes
+    \node[fill=black, circle, inner sep=1pt, label=above:1] (A) at (0,1.5) {};
+    \node[fill=black, circle, inner sep=1pt, label=right:2] (B) at (1.5,0) {};
+    \node[fill=black, circle, inner sep=1pt, label=left:3] (C) at (-1.5,0) {};
+
+    \end{tikzpicture}
+    \caption{Diagrams of different Markov Chains: left is the diagram for the Markov chain in \cref{ex:transition_matrix}, right is the diagram corresponding to the identity matrix.}
+    \label{fig:transition_matrix}
+\end{figure}
+
+Natural question for Markov Chains is the marginal distributions after $n$ steps. Let's start from a single step starting from some marginal distribution $p(x_0) = q$.
+\begin{align}
+    p(x_1 = i) = \sum_j p(x_1 = i \cond x_0=j)p(x_0=j) = \sum_j P_{ij}q_j = (Pq)_i\,,
+\end{align}
+i.e. the marginal distribution at the next step $p(x_1)$ can be obtained simply by multiplying the transition matrix by the marginal distribution of the initial state $p(x_0)$ from the right. Thus, we know how to start calculating the marginals, but what if we consider the process in the middle of the chain? Here, we can wonder what's the transition probability between $t$ and $t-2$, i.e. skipping one step ahead. For this transition probability, we have
+\begin{align}
+    p(x_t=i\cond x_{t-2}=k) = \sum_j p(x_t=i\cond x_{t-1}=j) p(x_{t-1}=j\cond x_{t-2}=k) = \sum_j P_{ij} P_{jk} = (PP)_{ik}\,,
+\end{align}
+i.e. the transition kernel \kir{same as transition probability matrix. it is oftentimes called kernel, especially, in the continuous state-space} from $t-2$ to $t$ is defined as matrix multiplication of the transition matrix $P$. \kir{how did we come up with this formula for the transition kernel at first place? it's a good excercise to practice.}
+
+\begin{exercise}
+    Prove the opposite result that for any row-stochastic matrix $P$
+    \begin{align}
+        P_{ij} \geq 0\,, \;\forall \;i,j\;\;\sum_{i=1}^N P_{ij} = 1\,,
+    \end{align}
+    we have a valid transition kernel that transforms any distribution into a distribution.
+\end{exercise}
+
+\begin{exercise}
+    Using the previous two facts prove the following statements by induction
+    \begin{align}
+        p(x_n=i\cond x_{0}=k) = (P^n)_{ik}\,,\;\; p(x_n=i) = (P^n q)_{i}\,.
+    \end{align}
+\end{exercise}
+
+Using these facts we would like to analyse the asymptotic behaviour of our chain after many transitions. In order to do this, we have to evaluate $P^n$, which can be done if we represent the matrix $P$ in its eigenbasis, i.e., for simplicity, let's assume that eigenvectors of $P$ form an orthonormal basis, then we can represent $P$ as follows
+\begin{align}
+    P = U\Lambda U^T\,,\; \text{ where }\; 
+    \Lambda = \begin{bmatrix}
+    \lambda_1 & \ldots & 0\\
+    \vdots & \ddots & \vdots\\
+    0 & \ldots & \lambda_N\\
+    \end{bmatrix}\,,\;\;
+    U = \begin{bmatrix}
+    e_1 & \ldots & e_N
+    \end{bmatrix}\,,
+\end{align}
+$\Lambda$ is the diagonal matrix with eigenvalues on the diagonal and $U$ is the matrix, which columns are eigenvectors of $P$. Clearly, for this decomposition, we have
+\begin{align}
+    PP = U\Lambda U^TU\Lambda U^T = U\Lambda^2 U^T\,,\;\; P^n = U\Lambda^n U^T\,,
+\end{align}
+i.e. raising $P$ to the power of $n$ just raises the diagonal matrix $\Lambda$ to the power of $n$.
+
+Let's get back to the transition matrix from \cref{ex:transition_matrix}, and look at its eigenvalues.
+\begin{align}
+    \det\left(
+    \begin{bmatrix}
+    -\lambda & 1/2 & 1/2\\
+    1 & -\lambda & 1/2\\
+    0 & 1/2 & -\lambda
+    \end{bmatrix} \right) =~& 
+    -\lambda\left(\lambda^2 - \frac{1}{4}\right) - 1\left(-\frac{\lambda}{2} - \frac{1}{4}\right)\\
+    =~& \left(\lambda + \frac{1}{2}\right)\left[-\lambda\left(\lambda - \frac{1}{2}\right) + \frac{1}{2}\right]
+    = \left(\lambda + \frac{1}{2}\right)^2(\lambda - 1)
+\end{align}
+Thus, we have $\lambda_1 = 1$ and, alright, here we have the eigenvalue $\lambda_{2,3}=-1/2$ of multiplicity $2$, hence we can't diagonalize $\Lambda$, but irregardless, let's say that we start from $q$ that can be represented in our eigenbasis, i.e.
+\begin{align}
+    q = \alpha_1 e_1 + \alpha_2 e_2 + \alpha_3 e_3\,,
+\end{align}
+where $e_i$ are the eigenvectors and $\alpha_i$ are the coordinates of $q$ in this basis.
+\begin{align}
+    P^n q ~&= \alpha_1 P^n e_1 + \alpha_2 P^n e_2 + \alpha_3 P^n e_3 = \alpha_1 \lambda_1^n e_1 + \alpha_2 \lambda_2^n e_2 + \alpha_3 \lambda_3^n e_3\\
+    ~&= \alpha_1 e_1 + \alpha_2 (-1/2)^n e_2 + \alpha_3 (-1/2)^n e_3\\
+    P^n q ~&\xrightarrow[n\to\infty]{} \alpha_1 e_1\,.
+\end{align}
+Thus, we see that the marginal distribution $p(x_n)$ of this Markov Chain always converges to the distribution proportional to the eigenvector $e_1$ corresponding to $\lambda_1 = 1$. In particular, 
+\begin{align}
+    \begin{bmatrix}
+    0 & 1/2 & 1/2\\
+    1 & 0 & 1/2\\
+    0 & 1/2 & 0
+    \end{bmatrix}
+    e_1 = e_1 \implies 
+    \begin{bmatrix}
+    b + c = 2a\\
+    2a + c = 2b\\
+    b = 2c
+    \end{bmatrix}
+    \implies 
+    \begin{bmatrix}
+    a = 3/2\\
+    b = 2\\
+    c = 1
+    \end{bmatrix}
+    \implies
+    e_1 =
+    \begin{bmatrix}
+    3/9\\
+    4/9\\
+    2/9
+    \end{bmatrix}\,.
+\end{align}
+To summarize this example, we observe that for any starting distribution $q$ our markov chain converges to the distribution $e_1$, which satisfies
+\begin{align}
+    Pe_1 = e_1\,.
+\end{align}
+
+Of course, convergence to $e_1$ is not a coincidence and, more generally, we are interested in convergence to the stationary points of our dynamics.
+\begin{mybox}
+\begin{definition}[Stationarity Distribution]
+    For the transition matrix $P$, the stationary distribution $\pi$ is
+    \begin{align}
+        P\pi = \pi\,.
+    \end{align}
+\end{definition}    
+\end{mybox}
+
+Clearly, the convergence of the Markov Chain depends on its spectrum, hence, we would like to state something general about the spectrum of Markov Chains. We start with the following result.
+\begin{proposition}[Eigenvalues of the Transition Matrix]
+    For any transition matrix of a Markov Chain, there exist eigenvalue $\lambda_1 = 1$ and all the eigenvalues are bounded by $1$, i.e.
+    \begin{align}
+        \lambda_1 = 1 \geq |\lambda_i|\,, \;\forall\; i = 2,\ldots,N\,.
+    \end{align}
+\end{proposition}
+\begin{proof}
+    We are going to analyse the eigenvalues of $P^T$ because they are the same as of $P$. Indeed, the characteristic polynomials of these matrices are the same
+    \begin{align}
+        \det(P - \lambda \mathbf{1}) = \det(P^T - \lambda \mathbf{1}).
+    \end{align}
+    Clearly, for $P^T$, we have
+    \begin{align}
+        (P^T\mathbf{1})_i = \sum_{j}(P^T)_{ij}\mathbf{1}_j = \sum_{j}P_{ji} = 1\, \implies P^T\mathbf{1} = \mathbf{1}\,.
+    \end{align}
+    Thus, there exist eigenvalue $\lambda = 1$. This is also the largest eigenvalue among all of them. Indeed, using the Perron-Frobenius theorem (or Gershgorin theorem) we have the following inequality for the norm of the largest eigenvalue
+    \begin{align}
+        \min_i \sum_j P^T_{ij}\leq |\lambda_1| \leq \max_i \sum_j P^T_{ij}\,,\\
+        1\leq |\lambda_1| \leq 1 \implies |\lambda_1| = 1\,,
+    \end{align}
+    where we denote $\lambda_1$ as the largest eigenvalue. That is the absolute value of the largest eigenvalue is always $1$. Since there exist $\lambda = 1$, we can always choose $\lambda_1 = 1$ as the largest eigenvalues. \kir{in general, of course, there might be other eigenvalues with the absolute value $1$}
+\end{proof}
+Thus, we see that we can always pull of the same trick as in our example for the first eigenvalue. Indeed, let's write the starting distribution in the eigenbasis
+\begin{align}
+    q = \sum_{i=1}^N\alpha_i e_i\,,\;\; P^nq= \sum_{i=1}^N\alpha_i \lambda_i^n e_i = \alpha_1 e_1 + \sum_{i=2}^N\alpha_i \lambda_i^n e_i\,.
+\end{align}
+However, we can't guarantee that all the other $\lambda_i$ except $\lambda_1$ will vanish. Indeed, an obvious example is the identity matrix, for which we have all the eigenvalues equal zero and all the vectors being stationary points.
+
+
+The issue with the identity matrix becomes obvious if we think about markov chains in terms of the diagram from \cref{fig:transition_matrix}. Clearly, the identity matrix does not make any transitions, i.e. if we start from some state we are going to stay in this state \kir{also, we can clearly see that the transition graph is disconnected}. To eliminate these uninteresting Markov Chains from consideration, the community came up with the following definition.
+\begin{mybox}
+\begin{definition}[Irreducibility]
+    If for any $i,j$ there exists $n \in \mathbb{N}$ such that $p(x_n=i\cond x_0=j) > 0$, the Markov Chain is called irreducible.
+\end{definition}
+\end{mybox}
+This definition is broad enough to cover a lot of interesting Markov Chains and at the same time strong enough to guarantee the existence of the stationary distribution.
+\begin{theorem}[Unique Stationary]
+    For irreducible Markov Chain $P$ there exist unique stationary distribution $\pi$ such that $P\pi = \pi$.
+\end{theorem}
+
+\begin{theorem}[Ergodic Theorem]
+    \begin{align}
+    \lim_{n\to\infty}\frac{1}{n}\sum_{i=1}^n P^i q = \pi
+    \end{align}
+\end{theorem}
+
+Note that the irreducibility does not imply the convergence of the markov chain to the stationary distribution. Indeed, consider the looped chain that transitions everything to the state with the next index, i.e. $p(x_t=i+1\cond x_{t-1}=i)=1$ and $p(x_t=1\cond x_{t-1}=N)=1$. One has to require the aperiodicity, but this is beyond our current scope.
+
+\subsection{Metropolis-Hastings Test}
+
+In the previous section we analysed the asymptotic behavior of given Markov Chain. However, the central question of MCMC field is
+\begin{mybox}
+    \begin{center}
+        \textit{How do we design a Markov Chain with a given stationary distribution $\pi$?}
+    \end{center}
+\end{mybox}
+
+With more details, one has to guarantee the following three properties:
+\begin{enumerate}
+    \item Stationarity \kir{the kernel preserves the target distribution}
+    \item Irreducibility \kir{the kernel can reach any point in the space where the target density is positive}
+    \item Aperiodicity \kir{the kernel does not contain periodic loops}
+\end{enumerate}
+However, the last two properties are usually guaranteed by selecting the kernel has positive density over the entire state-space. Here, we focus on the stationarity condition, that can be formalized as follows.
+\begin{mybox}
+\begin{definition}[Stationarity Condition]
+    \label{def:stat_cond}
+    For the Markov chain $k(x'\cond x)$, the stationary density $\pi$ satisfies
+    \begin{align}
+        \int dx\; k(y\cond x)\pi(x) = \pi(y)\,.
+    \end{align}
+\end{definition}    
+\end{mybox}
+
+This is not evident how to design kernel $k(y\cond x)$ that satisfies the stationarity condition! What we have is the information about $x$ $\pi$ and some standard distributions (e.g. uniform, normal, Poisson etc.). The main idea here is to take any $k(y\cond x)$ and augment it with an accept/reject step. Namely, let's call the sample $y \sim k(y\cond x)$ as the proposal point. Based on the current state $x$ and the proposed state $y$, we want to make a decision whether we move to $y$ or stay in $x$. Mathematically, we have $(x,y) \sim k(y\cond x)\pi(x)$ and for the next state $x'$ we choose $x$ with probability $g(x,y)$ or $y$ with probability $(1-g(x,y))$, let's denote the density of $x'$ as $q(x')$, then we have
+\begin{align}
+    q(x') =~& \int dxdy\; (g(x,y)\delta(x'-y) + (1-g(x,y))\delta(x'-x))k(y\cond x)\pi(x) \label{eq:mh_kernel}\\
+    =~& \int dx\; g(x,x')k(x'\cond x)\pi(x) + \int dy\; (1-g(x',y))k(y\cond x')\pi(x') \\
+    =~& \pi(x') + \int dx\; g(x,x')k(x'\cond x)\pi(x) - \int dy\; g(x',y)k(y\cond x')\pi(x')\,.
+\end{align}
+Clearly, nobody stops us from renaming variables inside the integral. Also, for the stationarity, we require $q(x') = \pi(x')$, then we have
+\begin{align}
+    q(x') =~& \pi(x') + \int dy\; \left(g(y,x')k(x'\cond y)\pi(y) - g(x',y)k(y\cond x')\pi(x')\right)\\
+    \pi(x') =~& \pi(x') + \int dy\; \left(g(y,x')k(x'\cond y)\pi(y) - g(x',y)k(y\cond x')\pi(x')\right)\\
+    0 =~& \int dy\; \left(g(y,x')k(x'\cond y)\pi(y) - g(x',y)k(y\cond x')\pi(x')\right)\,,
+\end{align}
+In particular, this can be satisfied by the following choice
+\begin{align}
+    g(y,x')k(x'\cond y)\pi(y) =~& g(x',y)k(y\cond x')\pi(x')\,,\;\forall\; y,x'\,,\\
+    g(x',y) =~& g(y,x')\frac{k(x'\cond y)\pi(y)}{k(y\cond x')\pi(x')}\,,\;\forall\; y,x'\,.
+\end{align}
+The final step in the reasoning is to recall that $g(x',y)$ is a probability (the acceptance probability); hence, $0 \leq g(x',y) \leq 1$, and we can take
+\begin{align}
+    g(x',y) =~& \min\left\{1,\frac{k(x'\cond y)\pi(y)}{k(y\cond x')\pi(x')}\right\}\,,\;\forall\; y,x'\,,
+    \label{eq:mh_acceptance}
+\end{align}
+which guarantees the stationarity condition.
+
+\begin{exercise}
+    Verify that \cref{eq:mh_acceptance} guarantees the stationarity by substituting it into the transition kernel \cref{eq:mh_kernel}.
+\end{exercise}
+
+Finally, we demonstrate the pseudo-code for the Metropolis-Hastings accept/reject test in \cref{alg:mh}.
+
+\begin{algorithm}[t]
+\caption{Metropolis-Hastings test}\label{alg:mh}
+\begin{algorithmic}
+\REQUIRE proposal kernel $k(y\cond x)$, starting point $x_0$, target density $\pi(x)$
+\FOR{iterations $i \in [0,n)$}
+\STATE sample proposal $y \sim k(y\cond x_i)$
+\STATE evaluate the probability $P = \min\left\{1,\frac{\pi(y)k(x_i\cond y)}{\pi(x_i)k(y\cond x_i)}\right\}$
+\STATE $x_{i+1} \gets \begin{cases}y, \;\text{ with probability }\; P\\
+        x_i, \;\text{ with probability }\; (1-P)\end{cases}$
+\ENDFOR
+\RETURN samples $\{x_i\}_{i=1}^n$
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Metropolis-Hastings-Green Test}
+
+In the previous section, we consider generating the proposal point stochastically and then derive the test for its acceptance. Here, we start from a different idea --- generating the proposal point via a diffeomorphism (differentiable bijection with differentiable inverse) $f(x)$. That is, the transition kernel is
+\begin{align}
+    k(y\cond x) = g(x)\delta(y-f(x)) + (1-g(x))\delta(y-x)\,,
+\end{align}
+where $g(x)$ is the acceptance probability. Then the stationarity condition (\cref{def:stat_cond}) is
+\begin{align}
+    \int dx\; k(y\cond x) \pi(x) =~& \pi(y)\\
+    \int dx\; \left[g(x)\delta(y-f(x)) + (1-g(x))\delta(y-x)\right]\pi(x) =~& \pi(y)\\
+    \int dz\; g(f^{-1}(z))\pi(f^{-1}(z))\delta(y-z)\bigg|\deriv{f^{-1}(z)}{z}\bigg| + (1-g(y))\pi(y) =~& \pi(y)\\
+    g(f^{-1}(y))\pi(f^{-1}(y))\bigg|\deriv{f^{-1}(y)}{y}\bigg| =~& g(y)\pi(y)\,,\label{eq:det_stat_cond}
+\end{align}
+where we have used the change of variables $z = f(x)$. Analogously to the reasoning in the previous section, we have to choose function $g(y)$ that satisfies the equation above and is a probability ($0 \leq g(y) \leq 1$). A reasonable guess is to choose
+\begin{align}
+    g(y) = \min\left\{1, \frac{\pi(f^{-1}(y))}{\pi(y)}\bigg|\deriv{f^{-1}(y)}{y}\bigg|\right\}\,.
+\end{align}
+The stationarity condition in \cref{eq:det_stat_cond} then becomes
+\begin{align}
+    ~&\min\left\{\pi(f^{-1}(y))\bigg|\deriv{f^{-1}(y)}{y}\bigg|, \pi(f^{-2}(y))\bigg|\deriv{f^{-1}(x)}{x}\bigg|_{x=f^{-1}(y)}\bigg|\deriv{f^{-1}(y)}{y}\bigg|\right\} = \min\left\{\pi(y), \pi(f^{-1}(y))\bigg|\deriv{f^{-1}(y)}{y}\bigg|\right\}\nonumber\\
+    ~&\min\left\{\pi(f^{-1}(y))\bigg|\deriv{f^{-1}(y)}{y}\bigg|, \pi(f^{-2}(y))\bigg|\deriv{f^{-2}(y)}{y}\bigg|\right\} = \min\left\{\pi(y), \pi(f^{-1}(y))\bigg|\deriv{f^{-1}(y)}{y}\bigg|\right\}\,,\label{eq:det_test}
+\end{align}
+where we use the notation for iterative application of the function, i.e. $f^2(x) = f(f(x))$, $f^{-2}(x) = f^{-1}(f^{-1}(x))$, and $f^0(x) = x$. The last condition holds in two cases: (i) when $f$ preserves the target density $\pi(f^{-1}(y))\bigg|\deriv{f^{-1}(y)}{y}\bigg| = \pi(y)$, which is very hard to 
+satisfy because for every $\pi$ we have to design some specific $f$ (ii) when $f^{-2}(x) = f^0(x) = x$, i.e. the function is an involution. Indeed, then \cref{eq:det_test} becomes
+\begin{align}
+    \min\left\{\pi(f^{-1}(y))\bigg|\deriv{f^{-1}(y)}{y}\bigg|, \pi(y)\right\} =~& \min\left\{\pi(y), \pi(f^{-1}(y))\bigg|\deriv{f^{-1}(y)}{y}\bigg|\right\}\,,
+\end{align}
+which is an identity. Finally, we get the following kernel
+\begin{align}
+    k(y\cond x) = \min\left\{1, \frac{\pi(f(x))}{\pi(y)}\bigg|\deriv{f(x)}{x}\bigg|\right\}\delta(y-f(x)) + \left(1-\min\left\{1, \frac{\pi(f(x))}{\pi(y)}\bigg|\deriv{f(x)}{x}\bigg|\right\}\right)\delta(y-x)\,,
+\end{align}
+where we use $f^{-1}(x) = f(x)$ because $f$ must be an involution.
+
+The great news are that it is relatively easy to design function which is an involution. Indeed, for any invertible $f(x)$, we can define an involution on the extended space $x,d$
+\begin{align}
+    \bar{f}(x,d) = 
+    \begin{cases}
+        (f(x), -d)\,, \;\text{ if } d=1\\
+        (f^{-1}(x), -d)\,, \;\text{ if } d=1\,,
+    \end{cases}
+    \label{eq:general_involution}
+\end{align}
+where the binary variable $d\in\{-1,1\}$ defines the direction in which we apply the function. 
+\begin{exercise}
+    Prove that $\bar{f}$ from \cref{eq:general_involution} is an involution.
+\end{exercise}
+
+However, the bad news are that involution always iterates between two points, i.e.
+\begin{align}
+    x \to f(x) \to f^2(x) = x \to f^3(x) = f(x) \to f^4(x) = x \to \ldots\,.
+\end{align}
+In order to cover the entire state-space, one can introduce auxiliary random variables that extend the state-space \kir{the proposal distribution in the previous section is exactly the same thing, the latent variables have the same flavour in \cref{sec:em-algo}}. That is, instead of sampling from $\pi(x)$ let's sample from the extended target distribution
+\begin{align}
+    \bar{\pi}(x,y) = \pi(x)k(y\cond x)\,,
+\end{align}
+where $k(y\cond x)$ can be any distribution which we can efficiently sample from and evaluate the density. Thus, by resampling $y$ at every iteration, we can avoid jumping between two points and get the Metropolis-Hastings-Green test (see \cref{alg:mhg}). Choosing different $k(y\cond x)$ and different involutions $f$ one can describe many existing MCMC algorithms \citep{neklyudov2020involutive}.
+
+\begin{algorithm}[t]
+\caption{Metropolis-Hastings-Green test}\label{alg:mhg}
+\begin{algorithmic}
+\REQUIRE proposal kernel $k(y\cond x)$, starting point $x_0$, target density $\pi(x)$, involution $f(x,y) = f^{-1}(x,y)$
+\FOR{iterations $i \in [0,n)$}
+\STATE sample $y \sim k(y\cond x_i)$
+\STATE evaluate the probability $P = \min\left\{1,\frac{\bar{\pi}(f(x_i, y))}{\bar{\pi}(x_i,y)}\bigg|\deriv{f(x_i,y)}{(x_i,y)}\bigg|\right\}$
+\STATE $(x_{i+1},y) \gets \begin{cases} f(x_i, y), \;\text{ with probability }\; P\\
+        (x_i,y), \;\text{ with probability }\; (1-P)\end{cases}$
+\ENDFOR
+\RETURN samples $\{x_i\}_{i=1}^n$
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Langevin Dynamics}
+
+Consider the following Stochastic Differential Equation (SDE)
+\begin{align}
+    dx_t = v_t(x_t)dt + \sigma_t dW_t\,,\; x_{t=0} = x_0\,,
+    \label{eq:def_SDE}
+\end{align}
+where $v_t(x_t)$ is a vector field, $dW_t$ is the standard Wiener process, and $\sigma_t$ is the noise scale. To get some intuition, it is useful to consider the discretization of this equation in time $dt$. The following discretization is called Euler integration-scheme
+\begin{align}
+    x_{t+dt} = x_t + v_t(x_t)dt + \sigma_t \sqrt{dt}\eps\,,\; \eps \sim \Normal(\eps\cond 0,1)\,.
+\end{align}
+As you can see, unlike the intergration of the Ordinary Differential Equations (ODEs), the integration of SDEs involves sampling a random variable $\eps \sim \Normal(\eps\cond 0,1)$ at every step. Therefore, for a system that starts with some state $x_0$, we can reason about the distribution of the coordinates $x_t$, i.e. $x_t$ is a random variable that is defined as the integration of \cref{eq:def_SDE} starting from $x_0$.
+
+Let's denote the density of $x_t$ as $p_t(x)$. Then we will introduce the following fact without proof.
+\begin{theorem}[The Fokker-Planck Equation]
+    The density of the random variable $x_t$ defined by \cref{eq:def_SDE} changes according to the following Partial Differential Equation (PDE)
+    \begin{align}
+        \deriv{p_t(x)}{t} = -\inner{\nabla}{p_t(x)v_t(x)} + \frac{\sigma_t^2}{2}\Delta p_t(x)\,.
+    \end{align}
+\end{theorem}
+This equation allows us to analyse the dynamics of distributions for given $v_t(x)$ and $\sigma_t$\,.
+
+Let's ask the following question: can we find the vector field $v_t(x)$ and noise schedule $\sigma_t$ such that they preserve the target density $\pi(x)$? In other words, if the density equals $p_t(x)=\pi(x)$ we want to find such $v_t(x),\sigma_t$ that the time-derivative is zero, i.e.
+\begin{align}
+    \deriv{p_t(x)}{t} =~& -\inner{\nabla}{p_t(x)v_t(x)} + \frac{\sigma_t^2}{2}\Delta p_t(x)\\
+    0 =~& -\inner{\nabla}{\pi(x)v_t(x)} + \frac{\sigma_t^2}{2}\Delta \pi(x)\\
+    \inner{\nabla}{\pi(x)v_t(x)} =~& \frac{\sigma_t^2}{2}\inner{\nabla}{\nabla \pi(x)} \\
+    \inner{\nabla}{\pi(x)v_t(x)} =~& \inner{\nabla}{\pi(x)\frac{\sigma_t^2}{2}\nabla \log \pi(x)}\,.
+\end{align}
+From the last equation, we see that, in particular, $v_t(x) = \frac{\sigma_t^2}{2}\nabla \log \pi(x)$ is a solution of the equation. \kir{there are many other solutions of this equation, but we don't discuss them here} This vector field defines the following family of SDEs
+\begin{mybox}
+\begin{definition}[The Langevin dynamics]
+    For the given target density $\pi(x)$, the Langevin dynamics refers to the following family of SDEs
+    \begin{align}
+        dx_t = \frac{\sigma_t^2}{2}\nabla\log \pi(x)dt + \sigma_t dW_t\,, \;\forall\;\sigma_t\,.
+    \end{align}
+\end{definition}
+\end{mybox}
+
+We have already demonstrated that the Langevin dynamics preserves $\pi(x)$, now we want to analyse its convergence to the target $\pi(x)$ from any starting density $p_{t=0}(x)$.
+\begin{theorem}[Convergence of the Langevin dynamics]
+    The KL-divergence between the current density of the Langevin dynamics $p_t(x)$ and the target density $\pi(x)$ changes as follows
+    \begin{align}
+        \deriv{}{t}\KL(p_t(x),\pi(x)) = -\frac{\sigma_t^2}{2}\int dx\; p_t(x)\norm{\nabla\log \frac{\pi(x)}{p_t(x)}}^2 \leq 0\,.
+    \end{align}
+\end{theorem}
+\begin{proof}
+    First, let's rewrite the Fokker-Planck equation
+    \begin{align}
+        \deriv{p_t(x)}{t} =~& -\inner{\nabla}{p_t(x)v_t(x)} + \frac{\sigma_t^2}{2}\Delta p_t(x)\\
+        \deriv{p_t(x)}{t} =~& -\inner{\nabla}{p_t(x)\left(v_t(x) - \frac{\sigma_t^2}{2} \nabla\log p_t(x)\right)}\,,
+    \end{align}
+    then let's put in the corresponding values of $v_t(x),\sigma_t$
+    \begin{align}
+        \deriv{p_t(x)}{t} =~& -\inner{\nabla}{p_t(x)\left(\frac{\sigma_t^2}{2} \nabla\log \frac{\pi(x)}{p_t(x)}\right)}\,.
+    \end{align}
+    Then, we take the time-derivative of the KL-divergence
+    \begin{align}
+        \deriv{}{t}\KL(p_t(x),\pi(x)) =~& \deriv{}{t}\int dx\; p_t(x)\log\frac{p_t(x)}{\pi(x)} = \int dx\; \deriv{p_t(x)}{t}\log\frac{p_t(x)}{\pi(x)} + \int dx\; p_t(x)\frac{\pi(x)}{p_t(x)}\frac{1}{\pi(x)}\deriv{p_t(x)}{t} \nonumber\\
+        =~& \int dx\; \deriv{p_t(x)}{t}\log\frac{p_t(x)}{\pi(x)} = -\int dx\; \inner{\nabla}{p_t(x)\left(\frac{\sigma_t^2}{2} \nabla\log \frac{\pi(x)}{p_t(x)}\right)}\log\frac{p_t(x)}{\pi(x)}\\
+        =~& \int dx\; p_t(x)\inner{\frac{\sigma_t^2}{2} \nabla\log \frac{\pi(x)}{p_t(x)}}{\nabla\log\frac{p_t(x)}{\pi(x)}} \label{eq:langevin_proof_parts}\\
+        =~& -\frac{\sigma_t^2}{2}\int dx\; p_t(x)\norm{\nabla\log \frac{\pi(x)}{p_t(x)}}^2 \leq 0\,,
+    \end{align}
+    where to get \cref{eq:langevin_proof_parts} we used integration by parts.
+\end{proof}
+
+\subsection{Hamiltonian/Hybrid Monte Carlo (HMC) \citep{duane1987hybrid}}
+
+Inspired by the Metropolis-Hastings-Green test (see \cref{alg:mhg}) we can design the test using $f$ that preserves the density and the volume. Such dynamics are described by the Hamiltonian mechanics, which we quickly recall here. The equations of motion in the Hamiltonian mechanics are as follows
+\begin{align}
+    \frac{dx}{dt} =~& \nabla_v H(x,v)\,,\\
+    \frac{dv}{dt} =~& -\nabla_x H(x,v)\,.
+\end{align}
+In particular, the Hamiltonian mechanics described the following famous example.
+\begin{example}
+    Newton's mechanics is described by the following Hamiltonian
+    \begin{align}
+        H(x,v) = \frac{m}{2}\norm{v}^2 + U(x)\,,
+    \end{align}
+    where $m$ is the mass of the system, $U(x)$ is the potential energy. Indeed, the equations then become
+    \begin{align}
+        \frac{dx}{dt} =~& mv\,,\\
+        \frac{dv}{dt} =~& -\nabla_x U(x)\,.
+    \end{align}
+\end{example}
+
+The candidate for the proposal function $f$ in the Metropolis-Hastings-Green test is the flow defined by the Hamiltonian dynamics. Flow is a transformation that takes the initial point of the trajectory and propagates it until time $t$ as follows
+\begin{align}
+    \varphi_t(x_0,v_0) = (x_t,v_t)\,, \;\; \frac{d}{dt}\varphi_t(x_0,v_0) = \left(\frac{dx_t}{dt},\frac{dv_t}{dt}\right) = (\nabla_v H(x,v),-\nabla_x H(x,v))\,.
+\end{align}
+The flow $\varphi_t$ of the Hamiltonian dynamics has two important properties: energy conservation (constant density) and volume conservation (the determinant of Jacobian equals $1$). Formally, these properties are stated in the following propositions.
+
+\begin{proposition}[Energy Conservation]
+    For the integral curve $x_t, v_t$, the Hamiltonian is constant along the curve, i.e.
+    \begin{align}
+        \forall\; t,s\,,\;\;H(x_t,v_t) = H(x_s,v_s)\,.
+    \end{align}
+\end{proposition}
+\begin{proof}
+    \begin{align}
+        \frac{d}{dt}H(x_t,v_t) =~& \inner{\nabla_x H(x_t,v_t)}{\frac{dx}{dt}} + \inner{\nabla_v H(x_t,v_t)}{\frac{dv}{dt}} \\
+        =~& \inner{\nabla_x H(x_t,v_t)}{\nabla_v H(x,v)} + \inner{\nabla_v H(x_t,v_t)}{-\nabla_x H(x,v)} = 0\,.
+    \end{align}
+\end{proof}
+
+\begin{proposition}[Volume Preserving]
+    The flow conserves the volume, 
+    \begin{align}
+        \bigg|\deriv{\varphi_t(x,v)}{x,v}\bigg| = 1+\int_0^t d\tau\;\mathrm{div}(\nabla_v H(x_\tau,v_\tau), -\nabla_x H(x_\tau,v_\tau)) = 1\,, 
+    \end{align}
+\end{proposition}
+\begin{proof}
+    \begin{align}
+        \mathrm{div}(\nabla_v H(x_\tau,v_\tau), -\nabla_x H(x_\tau,v_\tau)) =~& \inner{\nabla_x}{\nabla_v H(x,v)} + \inner{\nabla_v}{-\nabla_x H(x,v)} = 0\,.
+    \end{align}
+\end{proof}
+
+Now, once we see these nice properties of Hamiltonian mechanics, we can propose the following scheme. For the target density $\pi(x)$, we define the extended target density $\bar{\pi}(x,v)$ as follows
+\begin{align}
+    \bar{\pi}(x,v) \propto \exp\left(-\frac{1}{2}\norm{v}^2 + \log \pi(x) \right) = \exp\left(-H(x,v) \right)\,, \;\text{ where }\;H(x,v)\coloneqq \frac{1}{2}\norm{v}^2 - \log \pi(x)\,.
+\end{align}
+Note that here we introduce Hamiltonian $H(x,v)$ with the potential $-\log \pi(x)$. Clearly, if we can sample from $\bar{\pi}(x,v)$, we can sample from $\pi(x)$, because
+\begin{align}
+    \int dv\; \bar{\pi}(x,v) = \pi(x)\,.
+\end{align}
+Now, once we found the Hamiltonian $H(x,v)$, we can sample random $v \sim \Normal(v\cond 0,1)$ simulate the Hamiltonian dynamics with $H(x,v)$ and use it as a proposal for sampling. Then we can decide on accept/reject using the Metropolis-Hasting-Green test \cref{alg:mhg} and repeat. The final step for figuring out the algorithm is the evaluation of the Jacobian of the integration scheme for the Hamiltonian dynamics.
+
+\begin{mybox}
+    \begin{definition}[Leap-Frog Integrator]
+    For the Hamiltonian $H(x,v) = \frac{1}{2}\norm{v}^2 + U(x)$, the following integration scheme is called Leap-Frog (velocity-Verlet integrator)
+    \begin{align}
+        v_{t+dt/2} =~& v_t - \frac{dt}{2}\nabla U(x_t)\,,\\
+        x_{t+dt} =~& x_t + dtv_{t+dt/2}\,,\\
+        v_{t+dt} =~& v_{t+dt/2} - \frac{dt}{2}\nabla U(x_{t+dt})\,.
+    \end{align}
+    \end{definition}
+\end{mybox}
+The most important property of this integrator is that it preserves the volume, as formalized in the following proposition.
+\begin{proposition}
+    Leap-Frog integrator conserves the volume, i.e. the absolute value of the Jacobian determinant is $1$
+    \begin{align}
+        \bigg|\deriv{(x_{t+dt}, v_{t+dt})}{(x_{t}, v_{t})}\bigg| = 1\,.
+    \end{align}
+\end{proposition}
+\begin{proof}
+The determinant of the Jacobian is defined as
+    \begin{align}
+        \bigg|\deriv{(x_{t+dt}, v_{t+dt})}{(x_{t}, v_{t})}\bigg| =~& 
+        \begin{vmatrix}
+            \deriv{x_{t+dt}}{x_{t}} & \deriv{x_{t+dt}}{v_{t}} \\
+            \deriv{v_{t+dt}}{x_{t}} & \deriv{v_{t+dt}}{v_{t}} 
+        \end{vmatrix}
+        = \begin{vmatrix}
+            \deriv{x_{t+dt}}{x_{t}} & \deriv{x_{t+dt}}{v_{t}} \\
+            - \frac{dt}{2}\nabla^2U(x_t) - \frac{dt}{2}\deriv{\nabla U(x_{t+dt})}{x_{t+dt}}\deriv{x_{t+dt}}{x_t} & \mathds{1} - \frac{dt}{2}\deriv{\nabla U(x_{t+dt})}{x_{t+dt}}\deriv{x_{t+dt}}{v_t}
+        \end{vmatrix}\\
+        =~&
+        \begin{vmatrix}
+            - \frac{dt}{2}\nabla^2U(x_t) - \frac{dt}{2}\deriv{\nabla U(x_{t+dt})}{x_{t+dt}}\deriv{x_{t+dt}}{x_t} & \mathds{1} - \frac{dt}{2}\deriv{\nabla U(x_{t+dt})}{x_{t+dt}}\deriv{x_{t+dt}}{v_t}\\
+            \deriv{x_{t+dt}}{x_{t}} & \deriv{x_{t+dt}}{v_{t}} = dt\cdot \mathds{1}
+        \end{vmatrix}\,.
+    \end{align}
+In the last expression we have to have $(-1)^d$ where $d$ is the dimensionality, but we are interested only in the absolute value of the determinant. Now, we want to use the fact (see proof in \cref{prop:block_det})
+    \begin{align}
+        \det
+        \begin{bmatrix}
+            A & B\\
+            C & D
+        \end{bmatrix}
+        = \det(D)\det(A-BD^{-1}C)\,.
+    \end{align}
+Then, we have
+    \begin{align}
+        \bigg|\deriv{(x_{t+dt}, v_{t+dt})}{(x_{t}, v_{t})}\bigg| =~& 
+        \det(dt\cdot \mathds{1})\det\bigg(- \frac{dt}{2}\nabla^2U(x_t) - \frac{dt}{2}\deriv{\nabla U(x_{t+dt})}{x_{t+dt}}\deriv{x_{t+dt}}{x_t} - \\
+        ~&-\left(\mathds{1} - \frac{dt}{2}\deriv{\nabla U(x_{t+dt})}{x_{t+dt}}\deriv{x_{t+dt}}{v_t}\right)\left(\deriv{x_{t+dt}}{v_{t}}\right)^{-1}\deriv{x_{t+dt}}{x_{t}}\bigg)\\
+        =~& \det(dt\cdot \mathds{1})\det\bigg(- \frac{dt}{2}\nabla^2U(x_t) - \left(\deriv{x_{t+dt}}{v_{t}}\right)^{-1}\deriv{x_{t+dt}}{x_{t}}\bigg)\\
+        =~& \det(dt\cdot \mathds{1})\det\bigg(- \frac{dt}{2}\nabla^2U(x_t) - \frac{1}{dt}\left(\mathds{1}-\frac{dt^2}{2}\nabla^2U(x_t)\right)\bigg) = 1\,.
+    \end{align}
+\end{proof}
+To formalize the algorithm let's define the following function
+\begin{align}
+    v_{t+dt/2} =~& v_t - \frac{dt}{2}\nabla U(x_t)\,,\\
+    x_{t+dt} =~& x_t + dtv_{t+dt/2}\,,\\
+    v_{t+dt} =~& v_{t+dt/2} - \frac{dt}{2}\nabla U(x_{t+dt})\,,\\
+    \texttt{Leap-Frog}_{dt}(x_t,v_t) \coloneqq ~& x_{t+dt},v_{t+dt}\,.
+\end{align}
+Finally, the algorithm is presented in \cref{alg:hmc}.
+
+\begin{algorithm}[t]
+\caption{Hamiltonian Monte Carlo}\label{alg:hmc}
+\begin{algorithmic}
+\REQUIRE starting point $x_0$, target density $\pi(x)$, step-size $dt$
+\FOR{iterations $j \in [0,n)$}
+\STATE sample $v \sim \Normal(v\cond 0,1)$
+\FOR{$i \in [0,n)$}
+    \STATE $(x_{i+1},v_{i+1}) \gets \texttt{Leap-Frog}_{dt}(x_i,v_i)$
+\ENDFOR
+\STATE $P = \min\left\{1,\frac{\bar{\pi}(x_n,v_n)}{\bar{\pi}(x_0,y_0)}\right\} = \min\left\{1,\exp\left(-\frac{1}{2}\norm{v_n}^2-\frac{1}{2}\norm{v_0}^2 +\log\pi(x_n) - \log\pi(x_0)\right)\right\}$
+\STATE $x_{j+1} \gets \begin{cases} x_n, \;\text{ with probability }\; P\\
+        x_0, \;\text{ with probability }\; (1-P)\end{cases}$
+\ENDFOR
+\RETURN samples $\{x_j\}_{j=1}^n$
+\end{algorithmic}
+\end{algorithm}

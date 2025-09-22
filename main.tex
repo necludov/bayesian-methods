@@ -1,0 +1,166 @@
+\documentclass{article}
+\usepackage{authblk}
+\usepackage{tgpagella}
+\usepackage{tikz}
+\usetikzlibrary{decorations.pathreplacing}
+\usepackage[dvips,letterpaper,margin=1in]{geometry}
+
+\input{preamble}
+\input{macros}
+
+\usepackage{algorithm, algorithmic}
+
+\hypersetup{
+    colorlinks = true,
+    linkcolor = blue,
+    urlcolor  = black, 
+    citecolor = red,
+    anchorcolor = blue
+}
+
+\usepackage{authblk}
+\usepackage{cancel} 
+
+\makeatletter
+\makeatother
+
+\title{\huge Lecture Notes on Bayesian statistics}
+
+\author[1]{Kirill Neklyudov}
+% \date{25/11/24}
+
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+    This document contains the notes that I've been writing \textit{for myself} to prepare for teaching of the course ``Methods of Bayesian statistics'' at UdeM. This is not the truth chiseled in stone, this hasn't been proof-read and is very subjective especially when deviates to other subjects.
+\end{abstract}
+
+\tableofcontents
+\clearpage
+
+\input{text/prob_basics}
+\clearpage
+\input{text/bayes_basics}
+\clearpage
+\input{text/var_inference}
+\clearpage
+\input{text/monte_carlo}
+\clearpage
+
+\bibliographystyle{dinat}
+\bibliography{refs}
+\clearpage
+
+\appendix
+\input{text/appendix}
+
+\clearpage
+\section{Exam}
+
+\begin{question}
+\begin{enumerate}
+    \item Consider $x_1,\ldots,x_N$ --- iid samples from the Poisson distribution $\text{Poiss}(\lambda) = P(X = k\cond \lambda) = \exp(-\lambda)\frac{\lambda^k}{k!}$. Find the maximum likelihood estimation of $\lambda$.
+    \item The Metropolis-Hastings algorithm. For example: write down the transition kernel, prove stationarity of the kernel, what are the practical guidelines for the choosing the proposal?
+\end{enumerate}
+\end{question}
+
+\begin{question}
+\begin{enumerate}
+    \item Consider $x_1,\ldots,x_N$ --- iid samples from the exponential density function
+    \begin{align*}
+        p(x\cond \lambda) = \lambda\exp(-\lambda x)\,, \;\; x \geq 0\,, \lambda > 0.
+    \end{align*}
+    Find the conjugate prior $p(\lambda)$ and the corresponding posterior $p(\lambda\cond \mathcal{D})$.
+    \item Denoising Diffusion Probabilistic Models. For example: prove the likelihood lower bound.
+\end{enumerate}
+\end{question}
+
+\begin{question}
+\begin{enumerate}
+    \item Consider $x_1,\ldots,x_N$ --- iid samples from the Poisson distribution $\text{Poiss}(\lambda)$
+    \begin{align*}
+        P(X = k\cond \lambda) = \exp(-\lambda)\frac{\lambda^k}{k!}.
+    \end{align*}
+    Find the conjugate prior $p(\lambda)$ and the corresponding posterior $p(\lambda\cond \mathcal{D})$.
+    \item Hamiltonian Monte Carlo. For example: what is Hamiltonian mechanics?, prove that Leap-Frog preserves the volume.
+\end{enumerate}
+\end{question}
+
+\begin{question}
+\begin{enumerate}
+    \item For the exponential family $p(x\cond \theta) = \frac{f(x)}{g(\theta)}\exp\left(\theta^Tu(x)\right)$, find the expression for
+    \begin{align*}
+        \deriv{^2}{\theta_i\theta_j}\log g(\theta) = ?
+    \end{align*}
+    \item Conjugate prior. For example: give the definition and prove that , how one could do continual learning with conjugate distributions?
+\end{enumerate}
+\end{question}
+
+\begin{question}
+\begin{enumerate}
+    \item Represent the gamma distribution
+    \begin{align*}
+        \mathcal{G}(x\cond a,b) = \frac{b^a}{\Gamma(a)}x^{a-1}\exp(-b x)\,,
+    \end{align*}
+    as a density from the exponential family, find the expectations of the sufficient statistics.
+    \item Importance Sampling. For example: what is importance sampling, what are the properties of the estimator, is it possible to do importance sampling if the target density is unnormalized?
+\end{enumerate}
+\end{question}
+
+\begin{question}
+\begin{enumerate}
+    \item For the transition kernel
+    \begin{align*}
+        \bar{k}(x'\cond x) = \int dy\; (g(x,y)\delta(x'-y) + (1-g(x,y))\delta(x'-x))k(y\cond x)\pi(x)\,,
+    \end{align*}
+    verify that 
+    \begin{align*}
+        g(x,y) = \min\left\{1,\frac{k(x\cond y)\pi(y)}{k(y\cond x)\pi(x)}\right\}
+    \end{align*} 
+    guarantees the stationarity of $\bar{k}$ w.r.t. $\pi(x)$.
+    \item Variational Auto Encoder. For example: define the probabilistic model of VAE, prove the lower bound on the likelihood.
+\end{enumerate}
+\end{question}
+
+\begin{question}
+\begin{enumerate}
+    \item Find the density $q(x)$ of the random variable defined on $x \in \mathbb{R}$ that has the biggest entropy, given expectation $\mu$, and given variance $\sigma^2$\,.
+    \item Discrete Markov Chains. For example: how to find the stationary distribution?, is the stationary distribution unique?, how to find the marginal of the $n$-th step?
+\end{enumerate}
+\end{question}
+
+\begin{question}
+\begin{enumerate}
+    \item Prove
+    \begin{align*}
+        \KL(q,p) \leq \chi^2(q,p)\,,\;\; \text{ where }\;\;\chi^2(q,p) = \mean_{p(x)} \left(\frac{q(x)}{p(x)}-1\right)^2\,.
+    \end{align*}
+    \item Exponential family. For example: define the exponential family, defin the sufficient statistics, demonstrate the property of the normalization constant derivative, what's the conjugate prior?
+\end{enumerate}
+\end{question}
+
+\begin{question}
+\begin{enumerate}
+    \item Prove that the following optimization problems are equivalent
+    \begin{align*}
+        \max_\theta \mean_{x\sim p_{\text{data}}(x)}\log \left[\mean_{z \sim p(z\cond\theta)}p(x\cond z;\theta)\right] \iff \min_\theta \min_\eta\KL(p_{\text{data}}(x)p(z\cond x;\eta), p(x,z\cond \theta))\,.
+    \end{align*}
+    \item Model Selection. For example: how one can choose prior?, what is evidence?, how one can estimate evidence?
+\end{enumerate}
+\end{question}
+
+\begin{question}
+\begin{enumerate}
+    \item Given the likelihood model $p(\mathcal{D}\cond\theta)$ and the prior $p(\theta)$, for the variational posterior $q(\theta)$, derive the evidence lower bound
+    \begin{align*}
+        \log p(\mathcal{D}) \geq ?
+    \end{align*}
+    \item Baeysian ML models. For example: Bayesian linear regression, Bayesian Logistic Regression, Laplace approximation.
+\end{enumerate}
+\end{question}
+
+
+
+\end{document}

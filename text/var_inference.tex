@@ -1,0 +1,488 @@
+\section{Bayesian Variational Inference}
+\label{sec:var_inference}
+
+\subsection{Kullback-Leibler divergence}
+The philosophy of the Bayesian variational inference is "if we cannot find the distribution analytically because it is too complicated, let us approximate it with a simpler distribution by minimizing some notion of discrepancy between distributions."
+
+There are numerous ways for measuring discrepancy or divergence between distributions and all of them have their pros and cons. 
+One of the most important ways comes from the information theory and is defined as follows.
+\begin{mybox}
+\begin{definition}[Kullback-Leibler divergence]\label{def:kl_div}
+    For two discrete distributions $p$ and $q$ defined on the same set of outcomes $\{1,\ldots,M\}$, the Kullback-Leibler (KL) divergence is defined as
+    \begin{align}
+        \KL(p,q) = \sum_{i=1}^M p_i \log \frac{p_i}{q_i}\,.
+    \end{align}
+    Analogously, for two densities $p(x)$ and $q(x)$, and $x \in \Omega$, we have
+    \begin{align}
+        \KL(p(x),q(x)) = \int_\Omega dx\; p(x)\log \frac{p(x)}{q(x)}\,.
+    \end{align}
+\end{definition}    
+\end{mybox}
+\kir{it is tightly related to the concept of entropy and can be interpreted as the number of excess bits required for encoding the distribution $p(x)$ with the distribution $q(x)$.}
+
+One can easily see that the KL-divergence is always positive
+\begin{align}
+    \KL(p(x),q(x)) =~& \int_\Omega dx\; p(x)\log \frac{p(x)}{q(x)}\\
+    =~& -\int_\Omega dx\; p(x)\log \frac{q(x)}{p(x)}\\
+    \geq~& -\log\left(\int_\Omega dx\; p(x) \frac{q(x)}{p(x)}\right) = -\log 1 = 0\,,
+\end{align}
+where we used the Jensen's inequality for probabilities.
+Namely, for any convex function $f(x)$ and any function $\varphi(x)$, we have
+\begin{align}
+    \int dx\; p(x) f(\varphi(x)) \geq f\left(\int dx\; p(x)\varphi(x)\right)\,.
+\end{align}
+Furthermore, if $q(x) = p(x)$ it equals zero, indeed
+\begin{align}
+    \KL(p(x),p(x)) = \int_\Omega dx\; p(x)\log \frac{p(x)}{p(x)} = \int_\Omega dx\; p(x)\log 1 = \log 1 = 0\,.
+\end{align}
+Finally, one can prove that if $\KL(p(x),q(x)) = 0$ then $p(x) = q(x)$\,.
+
+\begin{example}\label{example:variational_mle}
+    Assume we observe some data $\mathcal{D} = \{x_1,\ldots, x_N\}$ that was generated from the distribution $x \sim p(x)$.
+    Let's approximate $p(x)$ by solving
+    \begin{align}
+        \theta^* = \argmin_\theta \KL(p(x),q(x\cond\theta))\,.
+    \end{align}
+    First, let's rewrite the KL-divergence as follows
+    \begin{align}
+        \KL(p(x),q(x\cond\theta)) = \int dx\; p(x)\log\frac{p(x)}{q(x\cond\theta)} = \int dx\; p(x)\log p(x) - \int dx\; p(x)\log q(x\cond\theta)\,.
+    \end{align}
+    Note that the first term does not depend on $\theta$. Thus, we have
+    \begin{align}
+        \argmin_\theta \KL(p(x),q(x\cond\theta)) = \argmin_\theta - \int dx\; p(x)\log q(x\cond\theta) = \argmax_\theta \mean_{x\sim p(x)} \log q(x\cond\theta)\,.
+    \end{align}
+    In other words, we see that minimizing $\KL(p(x),q(x\cond\theta))$ is equivalent to the maximum likelihood principle from \cref{def:mle}.
+\end{example}
+    
+\begin{exercise}
+    Find the KL-divergence between two multivariate Gaussians with the same covariance matrix but different expectations, i.e.
+    \begin{align}
+        \KL(\Normal(\mu_1,\Sigma), \Normal(\mu_2,\Sigma)) = ?
+    \end{align}
+\end{exercise}
+
+\begin{exercise}[Mode covering/seeking behaviour]
+    Find the mean of the normal distribution that minimizes the KL-divergence between a Gaussian and some density $p(x)$, i.e.
+    \begin{align}
+        \argmin_\mu \KL(p(x), \Normal(x\cond \mu,\Sigma)) = ?
+    \end{align}
+    How the problem changes if we flip the arguments of the KL-divergence, i.e. we consider
+    \begin{align}
+        \argmin_\mu \KL(\Normal(x\cond \mu,\Sigma),p(x)) = ?
+    \end{align}
+\end{exercise}
+
+\begin{exercise}
+    Prove
+    \begin{align}
+        \KL(q,p) \leq \chi^2(q,p)\,,\;\; \text{ where }\;\;\chi^2(q,p) = \mean_{p(x)} \left(\frac{q(x)}{p(x)}-1\right)^2\,.
+    \end{align}
+\end{exercise}
+
+\begin{exercise}
+    Prove that for any $p_1,q_1,p_2,q_2$ and $\alpha \in [0,1]$, we have
+    \begin{align}
+        \KL(\alpha q_1 + (1-\alpha)q_2,\alpha p_1 + (1-\alpha)p_2) \leq \alpha\KL(q_1,p_1) + (1-\alpha)\KL(q_2,p_2)\,.
+    \end{align}
+\end{exercise}
+
+\subsection{Evidence Lower Bound (ELBO)}
+Let's take any approximation $q(\theta)$ and evaluate the KL-divergence between this approximation and the posterior distribution.
+First, we just write the definition of the KL-divergence and the definition of the posterior distribution, i.e.
+\begin{align}
+    \KL(q(\theta),p(\theta\cond \mathcal{D})) =~& \int d\theta\; q(\theta)\log\frac{q(\theta)}{p(\theta\cond \mathcal{D})} = \int d\theta\; q(\theta)\log\frac{q(\theta)p(\mathcal{D})}{p(\mathcal{D}\cond \theta)p(\theta)}\\
+    =~& - \int d\theta\;q(\theta) \log p(\mathcal{D}\cond \theta) + \int d\theta\; q(\theta)\log\frac{q(\theta)}{p(\theta)} + \log p(\mathcal{D})\,.
+\end{align}
+This is what we want to minimize. 
+However, usually people take few more steps, i.e.
+\begin{align}
+    \KL(q(\theta),p(\theta\cond \mathcal{D})) =~& - \mean_{q(\theta)} \log p(\mathcal{D}\cond \theta) + \KL(q(\theta),p(\theta))  + \log p(\mathcal{D})\\
+    \log p(\mathcal{D}) =~&  \mean_{q(\theta)} \log p(\mathcal{D}\cond \theta) -\KL(q(\theta),p(\theta)) + \KL(q(\theta),p(\theta\cond \mathcal{D}))\label{eq:evidence}\\
+    \log \underbrace{p(\mathcal{D})}_{\text{evidence}} \geq~& \underbrace{\mean_{q(\theta)} \log p(\mathcal{D}\cond \theta) -\KL(q(\theta),p(\theta))}_{\text{Evidence Lower Bound}}\,,
+\end{align}
+where the last transition follows from the positivity of the KL-divergence.
+
+It's a good moment to recall \cref{def:var_bound} and see the following fact.
+\begin{theorem}
+    Evidence Lower Bound is a variational bound.
+\end{theorem}
+\begin{proof}
+    Indeed, we already showed that 
+    \begin{align}
+        \forall\, \mathcal{D}\,, q(\theta)\, \quad \log p(\mathcal{D}) \geq~& \mean_{q(\theta)} \log p(\mathcal{D}\cond \theta) -\KL(q(\theta),p(\theta))\,.
+    \end{align}
+    Thus, we just have to show the second requirement for a variational bound.
+    Namely, we have to show
+    \begin{align}
+        \forall\, \mathcal{D}\,, \exists\, q(\theta)\, : \log p(\mathcal{D}) =~& \mean_{q(\theta)} \log p(\mathcal{D}\cond \theta) -\KL(q(\theta),p(\theta))\,.
+    \end{align}
+    From \cref{eq:evidence}, we can easily see that the equality is achieved at $q(\theta) = p(\theta\cond \mathcal{D})$, i.e. by perfectly fitting the posterior.
+    Then, we have
+    \begin{align}
+        \mean_{p(\theta\cond\mathcal{D})} \log p(\mathcal{D}\cond \theta) -\KL(p(\theta\cond\mathcal{D}),p(\theta)) ~&= \int d\theta\; p(\theta\cond\mathcal{D}) \log\frac{p(\theta)p(\mathcal{D}\cond \theta)}{p(\theta\cond\mathcal{D})} \\
+        ~&= \int d\theta\; p(\theta\cond\mathcal{D}) \log p(\mathcal{D}) =  \log p(\mathcal{D})\,.
+    \end{align}
+\end{proof}
+
+Let's say we have parameterized the variational posterior $q(\theta\cond\varphi)$. 
+Then, we can find the optimal parameters $\varphi^*$ by solving the following optimization problem
+\begin{align}
+    \varphi^* = \argmax_\varphi \mean_{q(\theta\cond \varphi)} \log p(\mathcal{D}\cond \theta) -\KL(q(\theta\cond \varphi),p(\theta))\,,
+\end{align}
+i.e. by maximizing the Evidence Lower Bound.
+Usually we choose $q(\theta\cond\varphi)$ and $p(\theta)$ such that the KL-divergence can be found in the analytic form.
+However, the first term $\mean_{q(\theta\cond \varphi)} \log p(\mathcal{D}\cond \theta)$ always requires a numerical estimation of the gradient (in order to use the gradient-based optimization algorithms).
+Thus, we have a question how de we estimate the gradient $\nabla_\varphi \mean_{q(\theta\cond \varphi)} f(\theta)$\,.
+
+Taking the gradient w.r.t. the parameters of the distribution is a big problem in probabilistic modeling
+\begin{align}
+    \nabla_\varphi \mean_{q(x\cond \varphi)} f(x) = ?
+\end{align}
+We will consider two approaches to this. The first one is straightforward
+\begin{align}
+    \nabla_\varphi \mean_{q(x\cond \varphi)} f(x) =~& \int dx\; \nabla_\varphi q(x\cond \varphi) f(x) = \int dx\; q(x\cond \varphi) f(x) \nabla_\varphi \log q(x\cond \varphi) \\
+    =~& \mean_{q(x\cond \varphi)} f(x) \nabla_\varphi \log q(x\cond \varphi)\,.
+\end{align}
+Thus, we get the \textbf{score function gradient estimator}.
+Note that 
+\begin{align}
+    \mean_{q(x\cond \varphi)} \nabla_\varphi \log q(x\cond \varphi) = \int dx\; \nabla_\varphi q(x\cond \varphi) = \nabla_\varphi \int dx\; q(x\cond \varphi) = \nabla_\varphi 1 = 0\,.
+\end{align}
+Thus, we can introduce so-called \textbf{baseline} as follows
+\begin{align}
+    \nabla_\varphi \mean_{q(x\cond \varphi)} f(x) = \mean_{q(x\cond \varphi)} f(x) \nabla_\varphi \log q(x\cond \varphi) = \mean_{q(x\cond \varphi)} (f(x) - b) \nabla_\varphi \log q(x\cond \varphi)\,,
+\end{align}
+where $b \in \mathbb{R}$ is a constant w.r.t. $x$.
+In practice, the average value of $f$ minimizes the variance of the estimator, i.e.
+\begin{align}
+    \nabla_\varphi \mean_{q(x\cond \varphi)} f(x) \simeq \frac{1}{N}\sum_{i=1}^N\left(f(x_i) - \frac{1}{N-1}\sum_{j=1, j\neq i}^Nf(x_j)\right)\nabla_\varphi \log q(x_i\cond \varphi)\,.
+    \label{eq:score_baseline_estimator}
+\end{align}
+\begin{exercise}
+    Prove that the estimator in \cref{eq:score_baseline_estimator} is unbiased.
+\end{exercise}
+
+The second approach assumes that we can reparameterize $q(x\cond \varphi)$ as follows
+\begin{align}
+    g(\eps; \varphi) \sim q(x\cond \varphi)\,, \text{ where } \eps \sim q(\eps)\,,
+\end{align}
+i.e. there exist some, usually very simple, density $q(\eps)$ that does not depend on parameters $\varphi$ and the corresponding diffeormorphism (differentiable one-to-one function) $g(\eps; \varphi)$ that maps samples from $q(\eps)$ to samples from $q(x\cond \varphi)$. Then, one can write
+\begin{align}
+    \mean_{q(x\cond \varphi)} f(x) =~& \mean_{q(\eps)} 
+    f(g(\eps;\varphi))\\
+    \nabla_\varphi\mean_{q(x\cond \varphi)} f(x) =~& \mean_{q(\eps)} \nabla_\varphi f(g(\eps;\varphi)) = \mean_{q(\eps)} \deriv{g(\eps;\varphi)}{\varphi}\nabla_x f(x)\bigg|_{x=g(\eps;\varphi)}\,.
+\end{align}
+This is called the \textbf{reparameterization trick} or the \textbf{pathwise gradient estimator}.
+
+In general, the reparameterization trick, when possible, is always better than the score gradient estimator.
+Intuitively, this can be explained by the fact that score estimator does not use any information about the gradients of the function $f(x)$ (which carry a lot of information if the function is smooth).
+
+\subsection{Latent Variables, EM-algorithm}
+\label{sec:em-algo}
+
+Extending the state-space with additional variables is one of the fundamental ideas in many disciplines \kir{the best example illustrating this is presented in "Ordinary Differential Equations" by V.Arnold in the problem about two circular wagons}.
+In our case, when parameterizing a distribution on the state-space $\mathcal{X}$, we can always write
+\begin{align}
+    \int dz\; p(x,z\cond \theta) = p(x\cond\theta)\,,
+\end{align}
+i.e. we introduce another state-space $\mathcal{Z}$ and introduce the joint distribution on $\mathcal{X}\times\mathcal{Z}$, then we say that our parameterization $p(x\cond \theta)$ is simply the marginal of the joint distribution.
+\kir{note that there is infinitely many joint distributions on $\mathcal{X}\times\mathcal{Z}$ that have the marginal $p(x\cond\theta)$}
+\begin{mybox}
+\begin{definition}[Latent Variables]\label{def:latents}
+    In probabilistic inference, the extended space $\mathcal{Z}$ is called the \textbf{latent space} and the variables in this space are called \textbf{latent variables}.
+\end{definition}
+\end{mybox}
+
+In particular, one can define the joint distribution as follows
+\begin{align}
+    p(x,z\cond \theta) = p(x\cond z;\theta)p(z\cond \theta)\,,
+\end{align}
+i.e. by defining the distribution over $z \in \mathcal{Z}$ and the conditional distribution on $x \in \mathcal{X}$.
+Then, applying the maximum likelihood principle, we get
+\begin{align}
+    \text{Log-Likelihood}(\theta) = \mean_{x\sim p_{\text{data}}(x)}\log p(x\cond\theta) = \mean_{x\sim p_{\text{data}}(x)}\log \left[\mean_{z \sim p(z\cond\theta)}p(x\cond z;\theta)\right]\,.
+\end{align}
+This, however, is very hard to optimize because we usually can't estimate numerically the logarithm of the expectation.
+Let's apply the variational principle to this.
+Recall that in \cref{example:variational_mle} we derive the variational formulation of maximum likelihood as the miminization of the KL-divergence.
+Let's apply the same technique, but for the joint distribution $p(x,z\cond \theta)$.
+The obvious problem here is that we don't have the data distribution for the latent variables $z$, so let's use the posterior $p(z\cond x;\theta)$ of our model $p(x\cond z;\theta)p(z\cond \theta)$.
+That is
+\begin{align}
+    \KL(p_{\text{data}}(x)p(z\cond x;\theta), p(x,z\cond \theta)) =~& \int dxdz\;p_{\text{data}}(x)p(z\cond x;\theta) \log\frac{p_{\text{data}}(x)p(z\cond x;\theta)}{p(x,z\cond \theta)}\\
+    =~&  \int dxdz\;p_{\text{data}}(x)p(z\cond x;\theta) \log\frac{p_{\text{data}}(x)}{p(x\cond \theta)} = \KL(p_{\text{data}}(x),p(x\cond \theta))\,.
+    \label{eq:variational_mle_extended}
+\end{align}
+Thus, we have that the minimization of the KL on the extended space is equivalent to maximum likelihood if we ``impute'' the latent variables of the target data with the posterior distribution.
+The last step in this sequence is that we would like to get rid of the differentiation through the ``imputed'' latent variables by introducing the variational upper bound.
+Namely, let's say we take some other posterior for generating the latents of the data, i.e. instead of $\KL(p_{\text{data}}(x)p(z\cond x;\theta), p(x,z\cond \theta))$, we consider 
+\begin{align}
+    \KL(p_{\text{data}}(x)~&\underbrace{p(z\cond x;\eta)}_{\text{different parameters!}}, p(x,z\cond \theta)) = \int dxdz\;p_{\text{data}}(x)p(z\cond x;\eta) \log \frac{p_{\text{data}}(x)p(z\cond x;\eta)}{p(x,z\cond \theta)}\\
+    =~& \int dxdz\;p_{\text{data}}(x)p(z\cond x;\eta) \log \frac{p_{\text{data}}(x)}{p(x\cond \theta)} + \int dxdz\;p_{\text{data}}(x)p(z\cond x;\eta) \log \frac{p(z\cond x;\eta)}{p(z\cond x;\theta)}\\
+    =~& \KL(p_{\text{data}}(x),p(x\cond \theta)) + \mean_{p_{\text{data}}(x)}\KL(p(z\cond x;\eta),p(z\cond x;\theta))\\
+    =~& \KL(p_{\text{data}}(x)p(z\cond x;\theta), p(x,z\cond \theta)) + \mean_{p_{\text{data}}(x)}\underbrace{\KL(p(z\cond x;\eta),p(z\cond x;\theta))}_{\geq 0}\,,
+\end{align}
+where in the last transition we use \cref{eq:variational_mle_extended}.
+Thus, we have derived the following variational upper bound
+\begin{align}
+\begin{split}
+    \forall\; \theta\,,\eta\,,\;\;\KL(p_{\text{data}}(x)p(z\cond x;\theta), p(x,z\cond \theta)) \leq \KL(p_{\text{data}}(x)p(z\cond x;\eta), p(x,z\cond \theta))\,,\\
+    \forall\; \theta\,,\;\exists \eta = \theta \,,\;\;\KL(p_{\text{data}}(x)p(z\cond x;\theta), p(x,z\cond \theta)) = \KL(p_{\text{data}}(x)p(z\cond x;\eta), p(x,z\cond \theta))\,.
+    \label{eq:em_variational_bound}
+\end{split}
+\end{align}
+Thus, we have proved the following result.
+\begin{proposition}[Variational Formulation of the EM-algorithm]
+The following optimization problems are equivalent
+    \begin{align}
+        \max_\theta \mean_{x\sim p_{\text{data}}(x)}\log \left[\mean_{z \sim p(z\cond\theta)}p(x\cond z;\theta)\right] \iff \min_\theta \min_\eta\KL(p_{\text{data}}(x)p(z\cond x;\eta), p(x,z\cond \theta))\,.
+    \end{align}
+\end{proposition}
+
+\begin{mybox}
+\begin{definition}[EM-algorithm]\label{def:em_algo}
+    The iterative optimization of the following variational upper bound w.r.t. $\eta$ and $\theta$ is called the Expectation Maximization (EM) algorithm
+    \begin{align}
+        \KL(p_{\text{data}}(x)p(z\cond x;\theta), p(x,z\cond \theta)) \leq \KL(p_{\text{data}}(x)p(z\cond x;\eta), p(x,z\cond \theta))\,.
+    \end{align}
+\end{definition}    
+\end{mybox}
+
+\paragraph{Expectation step (E-step)} is the optimization w.r.t. the parameters $\eta$. This optimization problem is trivial due to the variational bound above. Indeed, simply setting $\eta = \theta$ minimizes the bound.
+That is why, oftentimes, people say that at the E-step we find the posterior distribution
+\begin{align}
+    p(z\cond x_i;\theta)\,,\;\; x_i \sim p_{\text{data}}(x)\,,
+\end{align}
+which then we can use to estimate the objective by integrating w.r.t. $z$ or sampling the latent variables
+\begin{align}
+    z_i \sim p(z\cond x_i;\theta)\,,\;\; x_i \sim p_{\text{data}}(x)\,.
+\end{align}
+
+\paragraph{Maximization step (M-step)} is the \textit{minimization} of the derived variational upper bound on the KL-divergence w.r.t. $\theta$, i.e.
+\begin{align}
+    \theta^* = \argmin_\theta \KL(p_{\text{data}}(x)p(z\cond x;\eta), p(x,z\cond \theta))\,.
+\end{align}
+
+Well, why do people call it the maximization step then? It's very simple --- there is another interpretation of this optimization problem.
+Recall \cref{eq:variational_mle_extended}, then we can write 
+\begin{align}
+    \KL(p_{\text{data}}(x), p(x\cond \theta)) \leq~& \KL(p_{\text{data}}(x)p(z\cond x;\eta), p(x,z\cond \theta))\\
+    \mean_{p_{\text{data}}(x)}\left[\log p_{\text{data}}(x) - \log p(x\cond \theta)\right] \leq~& \mean_{p_{\text{data}}(x)p(z\cond x;\eta)}\big[\log p_{\text{data}}(x) + \log p(z\cond x;\eta) \\
+    ~&- \log p(x,z\cond \theta)\big]\\
+     \mean_{p_{\text{data}}(x)p(z\cond x;\eta)}\left[-\log p(z\cond x;\eta) + \log p(x,z\cond \theta)\right]\leq~& \mean_{p_{\text{data}}(x)}\log p(x\cond \theta)\,.
+\end{align}
+Let's rearrange the terms on the left by decomposing the joint density $p(x,z\cond \theta) = p(x\cond z;\theta)p(z\cond \theta)$
+\begin{align}
+    \underbrace{\mean_{p_{\text{data}}(x)p(z\cond x;\eta)}\log p(x\cond z;\theta) - \mean_{p_{\text{data}}(x)}\KL(p(z\cond x;\eta),p(z\cond\theta))}_{\text{lower bound}}\leq~& \underbrace{\mean_{p_{\text{data}}(x)}\log p(x\cond \theta)}_{\text{marginal likelihood}}\,.
+\end{align}
+Namely, for the M-step, eliminating the terms that are independent of $\theta$, we have the following result.
+\begin{proposition}[M-step]
+The following optimization problems are equivalent
+    \begin{align}
+        \argmin_\theta \KL(p_{\text{data}}(x)p(z\cond x;\eta), p(x,z\cond \theta)) = \argmax_\theta \mean_{p_{\text{data}}(x)p(z\cond x;\eta)}\log p(x\cond z;\theta)p(z\cond\theta)\,.
+    \end{align}
+\end{proposition}
+
+\subsection{Variational Auto-Encoder (VAE) \citep{kingma2013auto}}
+
+Finding the posterior distribution $p(z\cond x;\theta)$ might be infeasible in practice.
+Indeed, if the likelihood model is a neural network, e.g.
+\begin{align}
+    p(x\cond z;\theta) = \Normal(x\cond \mu(z;\theta), \sigma^2(z;\theta))\,,
+\end{align}
+where $\mu(z;\theta)$ and $\sigma^2(z;\theta))$ are outputs of the network, then finding $p(z\cond x;\theta)$ in closed form is impossible. 
+Even sampling $z \sim p(z\cond x;\theta) \propto p(x\cond z;\theta)p(z\cond \theta)$ might be very complicated task.
+
+The idea is to approximate $p(z\cond x;\theta)$ with another parametric model $q(z\cond x;\eta)$.
+We already have all the necessary tools for this!
+Indeed, when proving the variational bound \cref{eq:em_variational_bound} we did not use anywhere that the posterior with different parameters $\eta$ has the same functional family as the true posterior.
+Thus, we can write the following
+\begin{align}
+    \KL(p_{\text{data}}(x)\underbrace{p(z\cond x;\theta)}_{\text{true posterior}}, p(x\cond z;\theta)p(z\cond \theta)) \leq \KL(p_{\text{data}}(x)\underbrace{q(z\cond x;\eta)}_{\text{approximation}}, p(x\cond z;\theta)p(z\cond \theta))\,,
+\end{align}
+i.e. instead of using the posterior from the same functional family but with different parameters (from the previous iteration) as in the EM-algorithm, we approximate the posterior with a completely independent model $q(z\cond x;\eta)$.
+This is a variational bound in the following sense
+\begin{align}
+\begin{split}
+    ~&\forall\; \theta\,,q(z\cond x;\eta)\,,\;\;\KL(p_{\text{data}}(x)p(z\cond x;\theta), p(x\cond z;\theta)p(z\cond \theta)) \leq \KL(p_{\text{data}}(x)q(z\cond x;\eta), p(x\cond z;\theta)p(z\cond \theta))\,,\\
+    ~&\forall\; \theta\,,\;\exists q(z\cond x;\eta) = p(z\cond x;\theta) \,,\;\;\KL(p_{\text{data}}(x)p(z\cond x;\theta), p(x,z\cond \theta)) = \KL(p_{\text{data}}(x)p(z\cond x;\eta), p(x,z\cond \theta))\,.
+    \label{eq:vae_variational_bound}
+\end{split}
+\end{align}
+Clearly, the same result holds for the lower variational bound on the marginal log-likelihood, i.e.
+\begin{align}
+    \mean_{p_{\text{data}}(x)q(z\cond x;\eta)}\log p(x\cond z;\theta) - \mean_{p_{\text{data}}(x)}\KL(p(z\cond x;\eta),p(z\cond\theta))\leq~& \mean_{p_{\text{data}}(x)}\log p(x\cond \theta)\,.
+\end{align}
+
+\begin{exercise}[VAE with Gaussians]
+    Consider the following parametric model
+    \begin{align}
+        \underbrace{p(x\cond z;\theta) = \Normal(x\cond \mu(z;\theta),\sigma^2(z;\theta))}_{\text{decoder}}\,,\;\;\underbrace{p(z\cond \theta) = \Normal(0,1)}_{\text{prior}}\,,\;\; \underbrace{q(z\cond x;\eta) = \Normal(z\cond \mu(x;\eta),\sigma^2(x;\eta))}_{\text{encoder}}\,.
+    \end{align}
+    For this model, write down the training objective for both the encoder and the decoder, i.e. the KL upper bound or the log-likelihood lower bound. Which integrals you can take and which of them you have to estimate via Monte Carlo? Which gradient estimator you should use to estimate the gradients w.r.t. $\theta$ and $\eta$?
+\end{exercise}
+
+\subsection{Importance Weighted Auto-Encoder (IWAE) \citep{burda2015importance}}
+
+The log-likelihood lower bound is usually derived in the following way.
+First, one uses the definition of the marginal density and introduce a fictional density $q$, which can be anything, i.e.
+\begin{align}
+    p(x\cond \theta) = \int dz\; p(x, z\cond \theta) = \int dz\; q(z\cond x;\eta)\frac{p(x,z\cond\theta)}{q(z\cond x;\eta)}\,,\;\; \forall\; q(z\cond x;\eta)\,.
+    \label{eq:vae_marginal_ll}
+\end{align}
+Then one can use the Jensen's inequality for the logarithm and get
+\begin{align}
+    \log p(x\cond \theta) \geq \int dz\; q(z\cond x;\eta)\log \frac{p(x,z\cond \theta)}{q(z\cond x;\eta)} = \mean_{q(z\cond x;\eta)}\log \frac{p(x,z\cond \theta)}{q(z\cond x;\eta)}\,,\;\; \forall\; q(z\cond x;\eta)\,.
+\end{align}
+When we do this there are 
+\begin{itemize}[label={}]
+    \item \yes good news: we get a lower bound on the log-likelihood amenable for optimization;
+    \item \no bad news: the bound is tight only for the true posterior, i.e. $q(z\cond x;\eta) = p(z\cond x;\theta)$.
+\end{itemize}
+Note that the estimate in \cref{eq:vae_marginal_ll} holds for any $q$ and there is no bounds/errors introduced there yet. \kir{of course the problem of optimizing the marginal density directly is that the density is log-concave. for instance, consider the gaussian, the gradient of the density vanishes very fast once you go far from the mode. however, the gradient of the log-density is simply $x$ and does not vanish anywhere (formally, except the mode).}
+This spurred the following idea, what if we could draw more samples in \cref{eq:vae_marginal_ll} first and only \textit{then} take the logarithm and use Jensen's inequality?
+Indeed, we can write
+\begin{align}
+    p(x\cond \theta) ~&= \frac{1}{K}\sum_{i=1}^K\int dz_i\; p(x, z_i\cond \theta) = \frac{1}{K}\sum_{i=1}^K\int dz_i\; q(z_i\cond x;\eta)\frac{p(x,z_i\cond\theta)}{q(z_i\cond x;\eta)}\\
+    ~&=\frac{1}{K}\sum_{i=1}^K\int \prod_{j=1}^K dz_j\; q(z_j\cond x;\eta)\frac{p(x,z_i\cond\theta)}{q(z_i\cond x;\eta)}=\int \prod_{j=1}^K dz_j\; q(z_j\cond x;\eta)\frac{1}{K}\sum_{i=1}^K\frac{p(x,z_i\cond\theta)}{q(z_i\cond x;\eta)}\,,
+    \label{eq:iwae_marginal_ll}
+\end{align}
+i.e. we just ``copied'' the expression $K$ times and labeled the variables differently, which, of course, does not change the value of the expression. On the second row of derivations we use the fact that the integral expression depends only on $z_i$, so all the other densities over $z_j$ integrate to $1$. \kir{note that we could choose completely different densities $q^i(z_i\cond x;\eta_i)$ but we keep the same density for simplicity}
+The final step is to take the logarithm and to apply Jensen's inequality, i.e.
+\begin{align}
+    \log p(x\cond \theta) \geq  \int \prod_{j=1}^K dz_j\; q(z_j\cond x;\eta)\log \frac{1}{K}\sum_{i=1}^K\frac{p(x,z_i\cond\theta)}{q(z_i\cond x;\eta)} = \mean_{z_1,\ldots,z_K \sim q}\log \frac{1}{K}\sum_{i=1}^K\frac{p(x,z_i\cond\theta)}{q(z_i\cond x;\eta)}\,.
+\end{align}
+Thus, we have derived the IWAE lower bound on the marginal density. This bound can be used to train or to evaluate auto-encoding models.
+
+\begin{proposition}[IWAE estimator]
+    The IWAE estimator of the marginal density is
+    \begin{align}
+        \log p(x\cond \theta) \geq \mean_{z_1,\ldots,z_K \sim q}\log \frac{1}{K}\sum_{i=1}^K\frac{p(x,z_i\cond\theta)}{q(z_i\cond x;\eta)}\,, \text{ where } z_i \sim q(z_i\cond x;\eta)\,.
+    \end{align}
+\end{proposition}
+
+\begin{exercise}
+    Prove that the bound becomes tighter with the number of samples $K$.
+\end{exercise}
+
+\subsection{Denoising Diffusion Probabilistic Models (DDPM) \citep{sohl2015deep}}
+
+First, I would like to give a small motivation for introducing diffusion models. VAE had a tremendous success in the ML/DL community and quickly started spreading to other fields. It was very simple to understand, implement, and train while allowing for a qualitatively new level of generative modeling. Quickly, it was overshadowed by Generative Adversarial Networks (GANs), but always remained an actively studied/utilized model. Despite this, VAE had limitations, which were formalized as posterior collapse to the prior and ELBO not giving tight enough bounds etc.
+
+\kir{Informally, there was a common intuition that you can't get a good density model by slapping a gaussian on top of network's output, and this fact was much more influential than all the mathematical arguments. That's why people started building hierarchical VAEs, i.e. putting a VAE inside a VAE.}
+
+Following DDPM \citep{sohl2015deep, ho2020denoising} we define the density model as the marginal following backward (decoding) process
+\begin{align}
+\begin{split}
+    \label{eq:backward_process}
+    p(x_0\cond \theta) =~& \int dx_1,\ldots,dx_T\; p(x_T)\prod_{t=1}^Tp(x_{t-1}\cond x_t; \theta)\,, \\
+    ~&\text{where } p(x_T) = \Normal(0,1)\,,\;\; p(x_{t-1}\cond x_t;\theta) = \Normal(x_{t-1}\cond \mu(x_t;\theta), g_t^2)\,.
+\end{split}
+\end{align}
+After defining a density model we, as always, can write down the lower bound on the log-density as follows
+\begin{align}
+    \log p(x_0\cond \theta) ~&= \log \int dx_1\ldots dx_T\; p(x_T)\prod_{t=1}^{T} p(x_{t-1}\cond x_t;\theta) \\
+    ~&= \log \int dx_1\ldots dx_T\; \prod_{t=1}^{T} q(x_{t}\cond x_{t-1})\frac{p(x_T)\prod_{t=1}^{T} p(x_{t-1}\cond x_t;\theta)}{\prod_{t=1}^{T} q(x_{t}\cond x_{t-1})}\\
+    ~&\geq \mean_{\prod_{t=1}^{T} q(x_{t}\cond x_{t-1})} \log \frac{p(x_T)\prod_{t=1}^{T} p(x_{t-1}\cond x_t;\theta)}{\prod_{t=1}^{T} q(x_{t}\cond x_{t-1})} \\
+    ~&= \mean_{\prod_{t=1}^{T} q(x_{t}\cond x_{t-1})}\left[ \log p(x_T) + \sum_{t=1}^{T} \log \frac{p(x_{t-1}\cond x_t;\theta)}{q(x_{t}\cond x_{t-1})}\right]\,.\label{eq:ddpm_lb}
+\end{align}
+Note that this holds for any forward (encoding) process $\prod_{t=1}^{T} q(x_{t}\cond x_{t-1})$. To progress further, we need to introduce the marginals of this process as follows
+\begin{align}
+    q(x_\tau \cond x_0)\coloneqq \int dx_{1}\ldots dx_{\tau-1}\; \prod_{t=1}^{\tau} q(x_{t}\cond x_{t-1})\,,\;\text{ and }\; q(x_0\cond x_0)\coloneqq 1\,.
+\end{align}
+Using this definition and the lower bound from \cref{eq:ddpm_lb}, we have
+\begin{align}
+    \log p(x_0\cond \theta) \geq~& \mean_{\prod_{t=1}^{T} q(x_{t}\cond x_{t-1})}\left[ \log p(x_T) + \sum_{t=1}^{T} \log \frac{p(x_{t-1}\cond x_t;\theta)}{q(x_{t}\cond x_{t-1})}\right]\\
+    =~& \mean_{q(x_T\cond x_0)}\log p(x_T) + \sum_{t=1}^{T}\mean_{q(x_{t-1}\cond x_0)q(x_{t}\cond x_{t-1})}\log \frac{p(x_{t-1}\cond x_t;\theta)}{q(x_{t}\cond x_{t-1})}\,.
+\end{align}
+The final step in the derivation is to \textit{define} $q(x_{t-1}\cond x_t, x_0)$. Indeed, for the joint distribution $q(x_{t}\cond x_{t-1})q(x_{t-1}\cond x_0)$, we can define (using \cref{def:cond_dist}) the following conditional distribution
+\begin{align}
+    q(x_{t-1}\cond x_{t}, x_0) \coloneqq \frac{q(x_{t}\cond x_{t-1})q(x_{t-1}\cond x_0)}{\int dx_{t-1}\;q(x_{t}\cond x_{t-1})q(x_{t-1}\cond x_0)} = \frac{q(x_{t}\cond x_{t-1})q(x_{t-1}\cond x_0)}{q(x_t\cond x_0)}\,.
+\end{align}
+Continuing with this definition, we get
+\begin{align}
+    \log p(x_0\cond \theta) \geq~& \mean_{q(x_T\cond x_0)}\log p(x_T) - \sum_{t=1}^{T}\mean_{q(x_{t}\cond x_0)}\KL(q(x_{t-1}\cond x_{t},x_0),p(x_{t-1}\cond x_t;\theta)) + \\
+    ~& + \sum_{t=1}^{T}\mean_{q(x_{t-1}\cond x_0)q(x_{t}\cond x_{t-1})}\log\frac{q(x_{t-1}\cond x_0)}{q(x_t\cond x_0)}\,.
+\end{align}
+For the last term, we have
+\begin{align}
+    \sum_{t=1}^{T}\mean_{q(x_{t-1}\cond x_0)q(x_{t}\cond x_{t-1})}\log\frac{q(x_{t-1}\cond x_0)}{q(x_t\cond x_0)} =~& \sum_{t=0}^{T-1}\mean_{q(x_{t}\cond x_0)}\log q(x_t\cond x_0) - \sum_{t=1}^{T}\mean_{q(x_{t}\cond x_0)}\log q(x_t\cond x_0)\\
+    =~& \mean_{q(x_{0}\cond x_0)}\log q(x_0\cond x_0) - \mean_{q(x_{T}\cond x_0)}\log q(x_T\cond x_0) \\
+    =~& - \mean_{q(x_{T}\cond x_0)}\log q(x_T\cond x_0)\,.
+\end{align}
+Finally, we have the following result
+\begin{theorem}[Backward Process Lower Bound]
+    For the backward process from \cref{eq:backward_process} and any forward process $q(x_{t}\cond x_{t-1})$, we have the following lower bound on the log-density
+    \begin{align}
+    \log p(x_0\cond \theta) \geq~& - KL(q(x_T \cond x_0),p(x_T)) - \sum_{t=1}^{T}\mean_{q(x_{t}\cond x_0)}\KL(q(x_{t-1}\cond x_{t},x_0),p(x_{t-1}\cond x_t;\theta))\,.
+    \end{align}
+\end{theorem}
+\begin{proposition}[Variational formulation]
+    For the backward process from \cref{eq:backward_process} and any forward process $q(x_{t}\cond x_{t-1})$, we can derive the following upper bound on the KL-divergence
+    \begin{align}
+    \KL(p_{\text{data}}(x_0), p(x_0\cond \theta)) \leq~&  KL(q(x_T),p(x_T)) + \sum_{t=1}^{T}\mean_{q(x_{t})}\KL(q(x_{t-1}\cond x_{t}),p(x_{t-1}\cond x_t;\theta))\,,
+    \end{align}
+    where $p_{\text{data}}(x_0)$ is the density of the data distribution and the marginals $q(x_\tau)$ are defined as
+    \begin{align}
+        q(x_\tau)\coloneqq \int dx_0\;q(x_\tau\cond x_0)p_{\text{data}}(x_0)\,.
+    \end{align}
+\end{proposition}
+\begin{exercise}
+    Derive the variational formulation.
+\end{exercise}
+
+
+Theoretically, using this lower bound on the log-likelihood or its variational formulation in terms of the KL, one could parameterize both $q$ and $p$ and solve the optimization problem w.r.t. the models' parameters. In practice, however, a naive parameterization of this does not work
+\begin{itemize}[label={}]
+    \item \no indeed, to get the marginal $q(x_\tau \cond x_0)$ one has to apply the parameteric model multiple times what creates a lot of numerical instabilities;
+    \item \no furthermore, there exist infinite number of marginal sequences $q(x_\tau)$ between $p_{\text{data}}(x_0)$ and $p(x_T)$, hence, multiple forward and backward processes.
+\end{itemize}
+
+\cite{sohl2015deep} solved these problems by fixing the forward (encoding) process $q(x_t\cond x_{t-1})$ to the \textit{diffusion process}, which bears the following benefits
+\begin{itemize}[label={}]
+    \item \yes there is unique sequence of marginals $q(x_\tau)$, hence the marginals of the backward process are also fixed \kir{still exists infinitely many conditionals}.
+    \item \yes sampling from $q(x_\tau \cond x_0)$ can be performed directly, i.e. without simulating multiple transition kernels $q(x_t\cond x_{t-1})$;
+    \item \yes from physics we know that the functional form of the reverse (backward) process is the same as the forward diffusion process \citep{feller1949theory}. \kir{thus, for the first time in history, it was mathematically OK to slap a gaussian on networks' outputs.}
+\end{itemize}
+In particular, the diffusion process (its time discretization) is defined by the following forward transition kernel
+\begin{align}
+    q(x_t\cond x_{t-1}) = \Normal(x_t\cond \alpha_t x_{t-1}, \sigma_t^2 \mathds{1})\,,
+\end{align}
+that is, to generate next $x_t$ we have to scale $x_{t-1}$ by some scalar $\alpha_t$ and add some noise
+\begin{align}
+    x_t = \alpha_t x_{t-1} + \sigma_t \eps\,, \;\; \eps \sim\Normal(\eps\cond 0,1)\,.
+\end{align}
+For this process, we would like to find the following marginal
+\begin{align}
+    q(x_t\cond x_{0}) = ?
+\end{align}
+However, first, let's answer a simpler question $q(x_t\cond x_{t-2}) = ?$ That is,
+\begin{align}
+    x_t ~&= \alpha_t x_{t-1} + \sigma_t \eps = \alpha_t (\alpha_{t-1}x_{t-2} + \sigma_{t-1}\eps') + \sigma_t \eps\,, \;\;\eps,\eps'\sim \Normal(0,\mathds{1})\\
+    ~&= \alpha_t \alpha_{t-1} x_{t-2} + \alpha_t\sigma_{t-1}\eps' + \sigma_t \eps\,.
+\end{align}
+Thus, we have
+\begin{align}
+    q(x_t\cond x_{t-2}) = \Normal(x_t\cond \alpha_t \alpha_{t-1} x_{t-2}, ((\alpha_t \sigma_{t-1})^2 + \sigma_t^2)\mathds{1})\,.
+\end{align}
+Applying this proposition iteratively, we get the following formula.
+\begin{proposition}
+    For the transition probability $q(x_t\cond x_{t-1}) = \Normal(x_t\cond \alpha_t x_{t-1}, \sigma_t^2 \mathds{1})$, we have the following formula for the marginals
+    \begin{align}
+        q(x_\tau\cond x_{0}) = \Normal\left(x_t\bigg| \prod_{t=1}^\tau\alpha_t x_{0}, \sum_{t=1}^\tau \sigma_t^2 \prod_{i=t+1}^\tau\alpha_i^2\mathds{1}\right)\,.
+    \end{align}
+\end{proposition}
+To evaluate the objective we need the following conditional density.
+\begin{exercise}
+    For the transition probability $q(x_t\cond x_{t-1}) = \Normal(x_t\cond \sqrt{1-\beta_t} x_{t-1}, \beta_t \mathds{1})$, derive $q(x_{t-1}\cond x_{t}, x_0)$ using the definition
+    \begin{align}
+    q(x_{t-1}\cond x_{t}, x_0) \coloneqq \frac{q(x_{t}\cond x_{t-1})q(x_{t-1}\cond x_0)}{\int dx_{t-1}\;q(x_{t}\cond x_{t-1})q(x_{t-1}\cond x_0)} = \frac{q(x_{t}\cond x_{t-1})q(x_{t-1}\cond x_0)}{q(x_t\cond x_0)}\,.
+    \end{align}
+\end{exercise}
+The final step is to derive the KL-divergence
+\begin{exercise}
+    For the transition probability $q(x_t\cond x_{t-1}) = \Normal(x_t\cond \sqrt{1-\beta_t} x_{t-1}, \beta_t \mathds{1})$ and parameterized model of the backward process $p(x_{t-1}\cond x_{t}) = \Normal(x_{t-1}\cond \mu_t(x_t;\theta), \beta_t \mathds{1})$, find
+    \begin{align}
+        \KL(q(x_{t-1}\cond x_{t}),p(x_{t-1}\cond x_t;\theta)) = ?
+    \end{align}
+\end{exercise}

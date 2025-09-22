@@ -1,0 +1,170 @@
+\section{Recall of some facts}
+
+\subsection{Basic Concepts from Statistics}
+
+\begin{theorem}[Central Limit Theorem]
+    Consider a random variable $X$ with the density $p(x)$, mean $\mu$, and variance $\sigma^2$. The following convergence result takes place
+    \begin{align}
+        \sqrt{n}(\hat{\mu}_n-\mu) \xrightarrow[]{d} \Normal(0,\sigma^2)\,, \;\; \hat{\mu}_n = \frac{1}{n}\sum_{i=1}^n x_i\,, x_i \sim p(x)\,,
+    \end{align}
+    where $\xrightarrow[]{d}$ denotes the convergence in distribution.
+\end{theorem}
+\begin{proof}
+    Recall the basic properties of characteristic functions
+\end{proof}
+
+% \begin{mybox}
+% \begin{definition}[Consistent estimator]\label{def:consistent_estimator}
+%     Consider a random variable $X$ and iid observations of this variable $\{X_1,\ldots,X_N\}$.
+%     For statistics $\varphi(X)$, the estimator $\hat{\varphi}(X_1,\ldots,X_N)$ is called unbiased if
+%     \begin{align}
+%         \mean \varphi(X) = \mean \hat{\varphi}(X_1,\ldots,X_N)\,.
+%     \end{align}
+% \end{definition}    
+% \end{mybox}
+
+% \begin{mybox}
+% \begin{definition}[Unbiased estimator]\label{def:unbiased_estimator}
+%     Consider a random variable $X$ and iid observations of this variable $\{X_1,\ldots,X_N\}$.
+%     For statistics $\varphi(X)$, the estimator $\hat{\varphi}(X_1,\ldots,X_N)$ is called unbiased if
+%     \begin{align}
+%         \mean \varphi(X) = \mean \hat{\varphi}(X_1,\ldots,X_N)\,.
+%     \end{align}
+% \end{definition}    
+% \end{mybox}
+
+\subsection{Differentiation}
+
+\begin{mybox}
+\begin{definition}[Differentiable function]\label{def:diff_function}
+    The function $f: \mathcal{X} \to \mathbb{R}$ is differentiable at point $x \in \mathcal{X}$ if there exist linear operator $L_x: \mathcal{X} \to \mathbb{R}$ such that
+    \begin{align}
+        \forall\, h \in \mathcal{X}\,: f(x + h) = f(x) + L_x[h] + o(\norm{h})\,.
+    \end{align}
+\end{definition}    
+\end{mybox}
+The operator $L_x[h]$ is called differential and is usually denoted as $df(x)[h]$, i.e. we have
+\begin{align}
+    f(x + h) = f(x) + df(x)[h] + o(\norm{h})\,.
+\end{align}
+Linear operators in Hilbert spaces can be represented as a scalar product. Namely, if $df(x)[h]$ is linear w.r.t. $h$ we can consider applying this operator to the basis vectors $e_i$, then we have
+\begin{align}
+    df(x)[h] = df(x)\left[\sum_i h_i e_i\right] = \sum_i h_i \underbrace{df(x)\left[e_i\right]}_{\partial f(x)/ \partial x_i} = \inner{h}{\nabla f(x)}\,,
+\end{align}
+where we denote $df(x)\left[e_i\right]$ as $\partial f(x)/ \partial x_i$ and call it partial derivative.
+The vector of partial derivatives is called gradient and is denoted as
+\begin{align}
+    \nabla f(x) = \begin{bmatrix}
+        \partial f(x)/ \partial x_1\\
+        \vdots\\
+        \partial f(x)/ \partial x_d\\
+    \end{bmatrix}\,.
+\end{align}
+
+
+\subsection{Matrix Calculus}
+
+\begin{proposition}[Woodbury-Morrison formula]
+    The following identity holds
+    \begin{align}
+        \left(A + UCV\right)^{-1} = A^{-1} - A^{-1}U\left(C^{-1} + VA^{-1}U\right)^{-1}VA^{-1}\,.
+    \end{align}
+\end{proposition}
+\begin{proof}
+    \begin{align}
+        \left(A + UCV\right)^{-1} =~& A^{-1} - A^{-1}U\left(C^{-1} + VA^{-1}U\right)^{-1}VA^{-1}\\
+        I =~& \left(A + UCV\right)A^{-1} - \left(A + UCV\right)A^{-1}U\left(C^{-1} + VA^{-1}U\right)^{-1}VA^{-1}\\
+        I =~& \left(I + UCVA^{-1}\right) - U\left(I + CVA^{-1}U\right)\left(C^{-1} + VA^{-1}U\right)^{-1}VA^{-1}\\
+        I =~& \left(I + UCVA^{-1}\right) - UC\left(C^{-1} + VA^{-1}U\right)\left(C^{-1} + VA^{-1}U\right)^{-1}VA^{-1}\\
+        I =~& \left(I + UCVA^{-1}\right) - UCVA^{-1} = I
+    \end{align}
+\end{proof}
+
+\begin{proposition}[Determinant lemma]
+    \begin{align}
+        \det(A + UV) = \det(I + VA^{-1}U)\det(A)
+    \end{align}
+\end{proposition}
+% \begin{proof}
+%     \begin{align}
+%         \begin{bmatrix}
+%             A + UV & \\
+%             0 & \mathds{1}
+%         \end{bmatrix}
+%         =
+%         \begin{bmatrix}
+%             A & \\
+%             0 & \mathds{1}
+%         \end{bmatrix}
+%         \begin{bmatrix}
+%             I + VA^{-1}U & \\
+%             0 & \mathds{1}
+%         \end{bmatrix}
+%     \end{align}
+% \end{proof}
+
+\begin{proposition}[Block Determinant]
+    \label{prop:block_det}
+    \begin{align}
+        \det
+        \begin{bmatrix}
+            A & B\\
+            C & D
+        \end{bmatrix}
+        = \det(D)\det(A-BD^{-1}C)
+    \end{align}
+\end{proposition}
+\begin{proof}
+Let's note that
+    \begin{align}
+    \begin{bmatrix}
+        A & B\\
+        C & D
+    \end{bmatrix}
+    \begin{bmatrix}
+        1 & 0\\
+        -D^{-1}C & D^{-1}
+    \end{bmatrix}
+    = 
+    \begin{bmatrix}
+        A-BD^{-1}C & BD^{-1}\\
+        0 & 1
+    \end{bmatrix}\,.
+    \end{align}
+Then, we have
+    \begin{align}
+    \det
+    \begin{bmatrix}
+        A & B\\
+        C & D
+    \end{bmatrix}
+    \det
+    \begin{bmatrix}
+        1 & 0\\
+        -D^{-1}C & D^{-1}
+    \end{bmatrix}
+    =~& 
+    \det
+    \begin{bmatrix}
+        A-BD^{-1}C & BD^{-1}\\
+        0 & 1
+    \end{bmatrix}\\
+    \det
+    \begin{bmatrix}
+        A & B\\
+        C & D
+    \end{bmatrix}
+    \det(D)^{-1}
+    =~& 
+    \det(A-BD^{-1}C)\\
+    \det
+    \begin{bmatrix}
+        A & B\\
+        C & D
+    \end{bmatrix}
+    =~& 
+    \det(D)\det(A-BD^{-1}C)\,.
+    \end{align}
+\end{proof}
+
+

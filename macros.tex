@@ -1,0 +1,155 @@
+% \usepackage[capitalize]{cleveref}
+\global\long\def\cv#1#2{\left\{  #1\,\middle|\,#2\right\}  }
+\let\originalleft\left
+\let\originalright\right
+\renewcommand{\left}{\mathopen{}\mathclose\bgroup\originalleft}
+\renewcommand{\right}{\aftergroup\egroup\originalright}
+\global\long\def\X{\mathcal{X}}
+\global\long\def\K{\mathcal{K}}
+\global\long\def\U{\mathcal{U}}
+\global\long\def\A{\mathcal{A}}
+\global\long\def\T{\mathcal{T}}
+\global\long\def\P{\mathcal{P}}
+\global\long\def\L{\mathcal{L}}
+\global\long\def\S{\mathcal{S}}
+\newcommand{\om}{\omega}
+\global\long\def\g{\nabla}
+\global\long\def\fr#1#2{\frac{#1}{#2}}
+\newcommand{\cd}{\cdot}
+\newcommand{\diver}[1]{\g \cdot \left( #1 \right)}
+\global\long\def\norm#1{\left\lVert #1\right\rVert }
+\global\long\def\inner#1#2{\left\langle #1, #2\right\rangle}
+\global\long\def\pa{\mathbf{\partial}}
+\global\long\def\im{\implies}
+\global\long\def\EE{\mathbb{E}}
+\global\long\def\RR{\mathbb{R}}
+\global\long\def\eval#1{\left.#1\right|}
+\newcommand{\kilbo}{\textsc{kilbo}}
+% \DeclareMathOperator*{\argmax}{arg\,max}
+% \DeclareMathOperator*{\argmin}{arg\,min}
+\newcommand{\pat}{\frac{\pa}{\pa t}}
+\global\long\def\fr#1#2{\frac{#1}{#2}}
+% \newcommand{\Exp}[2]{\mathbb{E}_{#1}\left[ #2\right]}
+
+\definecolor{antiquefuchsia}{rgb}{0.57, 0.36, 0.51}
+\definecolor{amethyst}{rgb}{0.6, 0.4, 0.8}
+\newcommand{\gs}[1]{\textcolor{amethyst}{#1}}
+
+\newcommand{\deriv}[2]{\frac{\partial #1}{\partial #2}}
+\newcommand{\id}{{\mathrm{id}}}
+\newcommand*\Let[6]{\State #1 $\gets$ #2}
+\newcommand{\proj}{{\mathrm{proj}}}
+\newcommand{\orb}{{\mathrm{orb}}}
+\newcommand{\ord}{{\mathrm{ord}}}
+\newcommand{\mean}{\mathbb{E}}
+\newcommand{\var}{{\rm I\kern-.3em D}}
+% \newcommand{\prob}{{\rm P}}
+\renewcommand{\vec}[1]{\bm{#1}}
+\newcommand{\svec}[1]{\mathbf{#1}}
+\newcommand{\cond}{\,|\,}
+\newcommand{\Normal}{\mathcal{N}}
+\newcommand{\diag}{\mathrm{diag}}
+\newcommand{\eps}{\varepsilon}
+\newcommand{\ent}{\mathcal{H}}
+\DeclareMathOperator*{\infimum}{inf}
+\DeclareMathOperator*{\supremum}{sup}
+% \newtheorem{theorem}{Theorem}
+% \newtheorem*{theorem*}{Theorem}
+% \newtheorem{lemma}{Lemma}
+% \newtheorem{proposition}{Proposition}
+% \newtheorem*{proposition*}{Proposition}
+% \newtheorem{corollary}{Corollary}
+% \newtheorem{example}{Example}
+% \newtheorem*{example*}{Example}
+\DeclareMathSymbol{\shortminus}{\mathbin}{AMSa}{"39}
+
+
+\tcbuselibrary{theorems}
+
+\tcbset{mybox/.style={colback=cyan!5,colframe=cyan!35!black, width =\textwidth, boxrule=1.0pt, top=5pt,bottom=5pt,left=2pt, right=2pt},
+% left=2mm, right=2mm,fonttitle=\bfseries}, 
+% fontupper=\small,
+  before upper=\setlength{\parindent}
+  {0em}\everypar{{\setbox0\lastbox}\everypar{}}
+}
+\newtcolorbox{mybox}[1][]{mybox,#1}
+
+% % \newtcbtheorem[auto counter,number within=section,crefname={Definition}{Definitions}]{mydef}{Definition}%
+% % {colback=cyan!5,colframe=cyan!35!black,fonttitle=\bfseries,
+% % subtitle style={boxrule=0.4pt,colback=cyan!50!red!25!white},title=Box ~\thetcbcounter $\mid$ #2, label={#1}}{th}
+
+% \newtcbtheorem[auto counter,number within=section,crefname={prop}{props}]{myprop}{Proposition}%
+% {colback=green!5,colframe=green!35!black,fonttitle=\bfseries}{th}
+
+
+% ------------------------------- [WIDEBAR -------------------------------
+\makeatletter
+\let\save@mathaccent\mathaccent
+\newcommand*\if@single[3]{%
+  \setbox0\hbox{${\mathaccent"0362{#1}}^H$}%
+  \setbox2\hbox{${\mathaccent"0362{\kern0pt#1}}^H$}%
+  \ifdim\ht0=\ht2 #3\else #2\fi
+  }
+%The bar will be moved to the right by a half of \macc@kerna, which is computed by amsmath:
+\newcommand*\rel@kern[1]{\kern#1\dimexpr\macc@kerna}
+%If there's a superscript following the bar, then no negative kern may follow the bar;
+%an additional {} makes sure that the superscript is high enough in this case:
+\newcommand*\widebar[1]{\@ifnextchar^{{\wide@bar{#1}{0}}}{\wide@bar{#1}{1}}}
+%Use a separate algorithm for single symbols:
+\newcommand*\wide@bar[2]{\if@single{#1}{\wide@bar@{#1}{#2}{1}}{\wide@bar@{#1}{#2}{2}}}
+\newcommand*\wide@bar@[3]{%
+  \begingroup
+  \def\mathaccent##1##2{%
+%Enable nesting of accents:
+    \let\mathaccent\save@mathaccent
+%If there's more than a single symbol, use the first character instead (see below):
+    \if#32 \let\macc@nucleus\first@char \fi
+%Determine the italic correction:
+    \setbox\z@\hbox{$\macc@style{\macc@nucleus}_{}$}%
+    \setbox\tw@\hbox{$\macc@style{\macc@nucleus}{}_{}$}%
+    \dimen@\wd\tw@
+    \advance\dimen@-\wd\z@
+%Now \dimen@ is the italic correction of the symbol.
+    \divide\dimen@ 3
+    \@tempdima\wd\tw@
+    \advance\@tempdima-\scriptspace
+%Now \@tempdima is the width of the symbol.
+    \divide\@tempdima 10
+    \advance\dimen@-\@tempdima
+%Now \dimen@ = (italic correction / 3) - (Breite / 10)
+    \ifdim\dimen@>\z@ \dimen@0pt\fi
+%The bar will be shortened in the case \dimen@<0 !
+    \rel@kern{0.6}\kern-\dimen@
+    \if#31
+      \overline{\rel@kern{-0.6}\kern\dimen@\macc@nucleus\rel@kern{0.4}\kern\dimen@}%
+      \advance\dimen@0.4\dimexpr\macc@kerna
+%Place the combined final kern (-\dimen@) if it is >0 or if a superscript follows:
+      \let\final@kern#2%
+      \ifdim\dimen@<\z@ \let\final@kern1\fi
+      \if\final@kern1 \kern-\dimen@\fi
+    \else
+      \overline{\rel@kern{-0.6}\kern\dimen@#1}%
+    \fi
+  }%
+  \macc@depth\@ne
+  \let\math@bgroup\@empty \let\math@egroup\macc@set@skewchar
+  \mathsurround\z@ \frozen@everymath{\mathgroup\macc@group\relax}%
+  \macc@set@skewchar\relax
+  \let\mathaccentV\macc@nested@a
+%The following initialises \macc@kerna and calls \mathaccent:
+  \if#31
+    \macc@nested@a\relax111{#1}%
+  \else
+%If the argument consists of more than one symbol, and if the first token is
+%a letter, use that letter for the computations:
+    \def\gobble@till@marker##1\endmarker{}%
+    \futurelet\first@char\gobble@till@marker#1\endmarker
+    \ifcat\noexpand\first@char A\else
+      \def\first@char{}%
+    \fi
+    \macc@nested@a\relax111{\first@char}%
+  \fi
+  \endgroup
+}
+\makeatother
+% ------------------------------- WIDEBAR] -------------------------------
